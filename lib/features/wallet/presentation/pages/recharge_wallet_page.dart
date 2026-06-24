@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -18,8 +17,13 @@ class RechargeWalletPage extends StatefulWidget {
 
 class _RechargeWalletPageState extends State<RechargeWalletPage> {
   int? _selectedAmount;
+  int? _selectedPaymentMethod;
 
   final _amounts = const [1000, 2000, 5000, 10000, 20000, 50000];
+  final _paymentMethods = const [
+    {'name': 'MoMo', 'icon': Icons.phone_android_rounded},
+    {'name': 'Orange Money', 'icon': Icons.phone_iphone_rounded},
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -77,13 +81,44 @@ class _RechargeWalletPageState extends State<RechargeWalletPage> {
                     ).animate().fadeIn(delay: (index * 50).ms).scale();
                   },
                 ),
+                const SizedBox(height: 32),
+                Text(
+                  'Méthode de paiement',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: AppColors.greyDark,
+                  ),
+                ).animate().fadeIn(delay: 100.ms).slideX(),
+                const SizedBox(height: 16),
+                ...List.generate(_paymentMethods.length, (index) {
+                  final payment = _paymentMethods[index];
+                  final isSelected = _selectedPaymentMethod == index;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _PaymentMethodCard(
+                      icon: payment['icon'] as IconData,
+                      name: payment['name'] as String,
+                      isSelected: isSelected,
+                      onTap: () =>
+                          setState(() => _selectedPaymentMethod = index),
+                    ),
+                  ).animate().fadeIn(delay: (150 + index * 50).ms).slideX();
+                }),
                 const Spacer(),
                 KabaButton(
-                  text: 'Continuer',
-                  onPressed: _selectedAmount == null
+                  text: 'Recharger',
+                  onPressed:
+                      (_selectedAmount == null ||
+                          _selectedPaymentMethod == null)
                       ? null
-                      : () {
-                          context.push('/payment');
+                      : () async {
+                          ToastHelper.showSuccess(
+                            'Recharge effectuée avec succès!',
+                          );
+                          final navigator = Navigator.of(context);
+                          await Future.delayed(const Duration(seconds: 1));
+                          if (mounted) {
+                            navigator.pop();
+                          }
                         },
                 ).animate().fadeIn(delay: 400.ms),
               ],
@@ -99,31 +134,36 @@ class _PaymentMethodCard extends StatelessWidget {
   final IconData icon;
   final String name;
   final bool isSelected;
+  final VoidCallback onTap;
 
   const _PaymentMethodCard({
     required this.icon,
     required this.name,
     required this.isSelected,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return KabaCard(
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+    return GestureDetector(
+      onTap: onTap,
+      child: KabaCard(
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: AppColors.primary),
             ),
-            child: Icon(icon, color: AppColors.primary),
-          ),
-          const SizedBox(width: 16),
-          Expanded(child: Text(name, style: AppTextStyles.bodyLarge)),
-          if (isSelected)
-            Icon(AppIcons.check, color: AppColors.success, size: 28),
-        ],
+            const SizedBox(width: 16),
+            Expanded(child: Text(name, style: AppTextStyles.bodyLarge)),
+            if (isSelected)
+              Icon(AppIcons.check, color: AppColors.success, size: 28),
+          ],
+        ),
       ),
     );
   }
