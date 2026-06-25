@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/kaba_card.dart';
+import '../../../../features/auth/data/auth_provider.dart';
 
 import '../../../../shared/widgets/kaba_background.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mon profil'),
@@ -58,7 +60,15 @@ class ProfilePage extends StatelessWidget {
                 final index = _profileMenuItems.indexOf(item);
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
-                  child: _ProfileMenuItem(item: item)
+                  child: _ProfileMenuItem(
+                    item: item,
+                    onLogout: () async {
+                      await ref.read(authProvider.notifier).logout();
+                      if (context.mounted) {
+                        context.go('/');
+                      }
+                    },
+                  )
                       .animate()
                       .fadeIn(delay: (200 + (index * 100)).ms)
                       .slideX(begin: 0.1, end: 0),
@@ -74,13 +84,37 @@ class ProfilePage extends StatelessWidget {
 
 class _ProfileMenuItem extends StatelessWidget {
   final _ProfileMenuModel item;
+  final VoidCallback? onLogout;
 
-  const _ProfileMenuItem({required this.item});
+  const _ProfileMenuItem({required this.item, this.onLogout});
 
   @override
   Widget build(BuildContext context) {
     return KabaCard(
-      onTap: item.onTap != null ? () => item.onTap!(context) : null,
+      onTap: item.onTap != null 
+        ? () => item.onTap!(context) 
+        : onLogout != null 
+          ? () => showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Déconnexion'),
+                content: const Text('Tu es sûr de vouloir te déconnecter ?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Annuler'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      onLogout!();
+                    },
+                    child: const Text('Se déconnecter'),
+                  ),
+                ],
+              ),
+            )
+          : null,
       child: Row(
         children: [
           Container(

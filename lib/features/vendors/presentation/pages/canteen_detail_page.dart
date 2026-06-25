@@ -20,7 +20,7 @@ class CanteenDetailPage extends StatelessWidget {
             SliverAppBar(
               expandedHeight: 250,
               pinned: true,
-              backgroundColor: AppColors.background(context),
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               elevation: 0,
               leading: Padding(
                 padding: const EdgeInsets.all(8.0),

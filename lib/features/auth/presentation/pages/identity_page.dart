@@ -7,6 +7,7 @@ import '../../../../shared/widgets/kaba_button.dart';
 import '../../../../shared/widgets/kaba_input.dart';
 import '../../../../shared/widgets/kaba_background.dart';
 import '../../../../shared/widgets/step_indicator.dart';
+import '../../../../shared/widgets/kaba_bottom_sheet_modal.dart';
 
 class IdentityPage extends StatefulWidget {
   const IdentityPage({super.key});
@@ -40,57 +41,82 @@ class _IdentityPageState extends State<IdentityPage> {
       ),
       body: KabaBackground(
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const StepIndicator(
-                  currentStep: 3,
-                  totalSteps: 5,
-                ).animate().fadeIn(),
-                const SizedBox(height: 24),
-                Text(
-                  'Etape 3/5',
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: AppColors.accent,
+          child: Column(
+            children: [
+              // Contenu supérieur (toujours affiché)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const StepIndicator(
+                      currentStep: 3,
+                      totalSteps: 5,
+                    ).animate().fadeIn(),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Etape 3/5',
+                      style: AppTextStyles.labelMedium.copyWith(
+                        color: AppColors.accent,
+                      ),
+                    ).animate().fadeIn(),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Comment t\'appelles-tu ?',
+                      style: AppTextStyles.h1,
+                    ).animate().fadeIn().slideX(begin: -0.1),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Ces informations créent ton profil étudiant kabakaba.',
+                      style: AppTextStyles.bodyLarge.copyWith(
+                        color: AppColors.greyDark,
+                      ),
+                    ).animate().fadeIn(delay: 200.ms),
+                  ],
+                ),
+              ),
+              // BottomSheet statique
+              const SizedBox(height: 60),
+              Expanded(
+                child: KabaBottomSheetModal(
+                  isStatic: true,
+                  title: 'Identité',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Renseigne ton nom et prénom.',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.greyDark,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    KabaInput(
+                      label: 'PRÉNOM(S)',
+                      hintText: 'Koffi',
+                      controller: _surnameController,
+                    ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1),
+                    const SizedBox(height: 16),
+                    KabaInput(
+                      label: 'NOM',
+                      hintText: 'Mensah',
+                      controller: _nameController,
+                    ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.1),
+                    const SizedBox(height: 80),
+                      KabaButton(
+                        text: 'Continuer →',
+                        onPressed: () {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            context.go('/auth/campus-selection');
+                          });
+                        },
+                      ).animate().fadeIn(delay: 600.ms),
+                      const SizedBox(height: 24),
+                    ],
                   ),
-                ).animate().fadeIn(),
-                const SizedBox(height: 8),
-                Text(
-                  'Comment t\'appelles-tu ?',
-                  style: AppTextStyles.h1,
-                ).animate().fadeIn().slideX(begin: -0.1),
-                const SizedBox(height: 8),
-                Text(
-                  'Ces informations créent ton profil étudiant kabakaba.',
-                  style: AppTextStyles.bodyLarge.copyWith(
-                    color: AppColors.greyDark,
-                  ),
-                ).animate().fadeIn(delay: 200.ms),
-                const SizedBox(height: 48),
-                KabaInput(
-                  label: 'PRÉNOM(S)',
-                  hintText: 'Koffi',
-                  controller: _surnameController,
-                ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1),
-                const SizedBox(height: 16),
-                KabaInput(
-                  label: 'NOM',
-                  hintText: 'Mensah',
-                  controller: _nameController,
-                ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.1),
-                const Spacer(),
-                KabaButton(
-                  text: 'Continuer →',
-                  onPressed: () {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      context.go('/auth/campus-selection');
-                    });
-                  },
-                ).animate().fadeIn(delay: 600.ms),
-              ],
-            ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

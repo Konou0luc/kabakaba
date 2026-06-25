@@ -6,6 +6,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/kaba_background.dart';
 import '../../../../shared/widgets/step_indicator.dart';
 import '../../../../shared/widgets/kaba_button.dart';
+import '../../../../shared/widgets/kaba_bottom_sheet_modal.dart';
 
 class CampusSelectionPage extends StatelessWidget {
   const CampusSelectionPage({super.key});
@@ -53,117 +54,151 @@ class CampusSelectionPage extends StatelessWidget {
       ),
       body: KabaBackground(
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const StepIndicator(
-                  currentStep: 4,
-                  totalSteps: 5,
-                ).animate().fadeIn(),
-                const SizedBox(height: 24),
-                Text(
-                  'Etape 4/5',
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: AppColors.accent,
-                  ),
-                ).animate().fadeIn(),
-                const SizedBox(height: 8),
-                Text(
-                  'Où étudies-tu ?',
-                  style: AppTextStyles.h1,
-                ).animate().fadeIn().slideX(begin: -0.1, end: 0),
-                const SizedBox(height: 8),
-                Text(
-                  'Choisis ton campus pour accéder à tes cantines',
-                  style: AppTextStyles.bodyLarge.copyWith(
-                    color: AppColors.greyDark,
-                  ),
-                ).animate().fadeIn(delay: 200.ms),
-                const SizedBox(height: 48),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: campuses.length,
-                    itemBuilder: (context, index) {
-                      final campus = campuses[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16.0),
-                        child:
-                            Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).cardColor,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color:
-                                          Theme.of(context).brightness ==
-                                              Brightness.dark
-                                          ? AppColors.greyLightDarkMode
-                                          : AppColors.greyLight,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: Container(
-                                          width: 60,
-                                          height: 60,
-                                          color:
-                                              AppColors.surfaceSecondaryLight,
-                                          child: Icon(
-                                            Icons.school_outlined,
-                                            size: 30,
-                                            color: AppColors.primary,
+          child: Column(
+            children: [
+              // Contenu supérieur (toujours affiché)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const StepIndicator(
+                      currentStep: 4,
+                      totalSteps: 5,
+                    ).animate().fadeIn(),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Etape 4/5',
+                      style: AppTextStyles.labelMedium.copyWith(
+                        color: AppColors.accent,
+                      ),
+                    ).animate().fadeIn(),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Où étudies-tu ?',
+                      style: AppTextStyles.h1,
+                    ).animate().fadeIn().slideX(begin: -0.1, end: 0),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choisis ton campus pour accéder à tes cantines',
+                      style: AppTextStyles.bodyLarge.copyWith(
+                        color: AppColors.greyDark,
+                      ),
+                    ).animate().fadeIn(delay: 200.ms),
+                  ],
+                ),
+              ),
+              // BottomSheet statique
+              const SizedBox(height: 60),
+              Expanded(
+                child: KabaBottomSheetModal(
+                  isStatic: true,
+                  title: 'Choix du campus',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sélectionne ton établissement.',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.greyDark,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      height: 250,
+                      child: ListView.builder(
+                          itemCount: campuses.length,
+                          itemBuilder: (context, index) {
+                            final campus = campuses[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16.0),
+                              child:
+                                  Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).cardColor,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          border: Border.all(
+                                            color:
+                                                Theme.of(context).brightness ==
+                                                    Brightness.dark
+                                                ? AppColors.greyLightDarkMode
+                                                : AppColors.greyLight,
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                                        child: Row(
                                           children: [
-                                            Text(
-                                              campus['name'] as String,
-                                              style: AppTextStyles.bodyLarge,
+                                            ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: Container(
+                                                width: 60,
+                                                height: 60,
+                                                color: AppColors
+                                                    .surfaceSecondaryLight,
+                                                child: Icon(
+                                                  Icons.school_outlined,
+                                                  size: 30,
+                                                  color: AppColors.primary,
+                                                ),
+                                              ),
                                             ),
-                                            Text(
-                                              campus['location'] as String,
-                                              style: AppTextStyles.bodyMedium
-                                                  .copyWith(
-                                                    color: AppColors.greyDark,
+                                            const SizedBox(width: 16),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    campus['name'] as String,
+                                                    style:
+                                                        AppTextStyles.bodyLarge,
                                                   ),
+                                                  Text(
+                                                    campus['location']
+                                                        as String,
+                                                    style: AppTextStyles
+                                                        .bodyMedium
+                                                        .copyWith(
+                                                          color: AppColors
+                                                              .greyDark,
+                                                        ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const Icon(
+                                              Icons.arrow_forward_ios_rounded,
+                                              size: 16,
+                                              color: AppColors.grey,
                                             ),
                                           ],
                                         ),
-                                      ),
-                                      const Icon(
-                                        Icons.arrow_forward_ios_rounded,
-                                        size: 16,
-                                        color: AppColors.grey,
-                                      ),
-                                    ],
-                                  ),
-                                )
-                                .animate()
-                                .fadeIn(delay: (400 + index * 100).ms)
-                                .slideY(begin: 0.1, end: 0),
-                      );
-                    },
+                                      )
+                                      .animate()
+                                      .fadeIn(delay: (400 + index * 100).ms)
+                                      .slideY(begin: 0.1, end: 0),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      KabaButton(
+                        text: 'Continuer →',
+                        onPressed: () {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            context.go('/auth/referral');
+                          });
+                        },
+                      ).animate().fadeIn(delay: 800.ms),
+                      const SizedBox(height: 24),
+                    ],
                   ),
                 ),
-                KabaButton(
-                  text: 'Continuer →',
-                  onPressed: () {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      context.go('/auth/referral');
-                    });
-                  },
-                ).animate().fadeIn(delay: 800.ms),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

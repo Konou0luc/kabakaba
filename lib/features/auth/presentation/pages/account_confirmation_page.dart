@@ -1,30 +1,34 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/kaba_background.dart';
+import '../../data/auth_provider.dart';
 
-class AccountConfirmationPage extends StatefulWidget {
+class AccountConfirmationPage extends ConsumerStatefulWidget {
   const AccountConfirmationPage({super.key});
 
   @override
-  State<AccountConfirmationPage> createState() =>
+  ConsumerState<AccountConfirmationPage> createState() =>
       _AccountConfirmationPageState();
 }
 
-class _AccountConfirmationPageState extends State<AccountConfirmationPage> {
+class _AccountConfirmationPageState extends ConsumerState<AccountConfirmationPage> {
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 2), () {
-      if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          context.go('/home');
-        });
-      }
-    });
+    _completeSignup();
+  }
+
+  Future<void> _completeSignup() async {
+    await ref.read(authProvider.notifier).login();
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted) {
+      context.go('/home');
+    }
   }
 
   @override
@@ -45,8 +49,8 @@ class _AccountConfirmationPageState extends State<AccountConfirmationPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 100,
-                    height: 100,
+                    width: 140,
+                    height: 140,
                     decoration: BoxDecoration(
                       color: AppColors.success.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
@@ -54,7 +58,7 @@ class _AccountConfirmationPageState extends State<AccountConfirmationPage> {
                     child: const Icon(
                       Icons.check_circle_rounded,
                       color: AppColors.success,
-                      size: 60,
+                      size: 90,
                     ),
                   ).animate().scale(duration: 500.ms, curve: Curves.elasticOut),
                   const SizedBox(height: 24),

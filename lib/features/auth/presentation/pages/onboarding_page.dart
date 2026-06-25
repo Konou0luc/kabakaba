@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/kaba_button.dart';
-import 'login_page.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -121,9 +120,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           type: KabaButtonType.ghost,
                           fullWidth: false,
                           onPressed: () {
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              context.go('/auth');
-                            });
+                            context.go('/auth');
                           },
                         ),
                     ],
@@ -156,14 +153,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         : 'Suivant',
                     onPressed: () {
                       if (_currentPage == _items.length - 1) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const LoginPage(),
-                            ),
-                          );
-                        });
+                        context.go('/auth');
                       } else {
                         _pageController.nextPage(
                           duration: 300.ms,

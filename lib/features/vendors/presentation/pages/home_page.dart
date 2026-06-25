@@ -247,6 +247,16 @@ class _HomePageState extends State<HomePage> {
                                                   : 'assets/images/onbording.webp',
                                               fit: BoxFit.cover,
                                               width: double.infinity,
+                                              errorBuilder: (context, error, stackTrace) {
+                                                return Container(
+                                                  color: AppColors.greyLight,
+                                                  child: const Icon(
+                                                    Icons.restaurant_rounded,
+                                                    size: 40,
+                                                    color: AppColors.primary,
+                                                  ),
+                                                );
+                                              },
                                             ),
                                           ),
                                         ),

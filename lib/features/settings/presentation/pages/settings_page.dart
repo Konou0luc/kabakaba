@@ -30,9 +30,10 @@ class SettingsPage extends ConsumerWidget {
         isToggle: true,
         toggleValue: themeMode == AppThemeMode.dark,
         onToggle: (value) {
-          ref.read(themeModeProvider.notifier).state = value
-              ? AppThemeMode.dark
-              : AppThemeMode.light;
+          final themeNotifier = ref.read(themeModeProvider.notifier);
+          themeNotifier.setThemeMode(
+            value ? AppThemeMode.dark : AppThemeMode.light,
+          );
         },
       ),
       _SettingItem(
