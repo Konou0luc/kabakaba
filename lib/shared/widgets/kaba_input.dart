@@ -11,6 +11,7 @@ class KabaInput extends StatelessWidget {
   final TextInputType? keyboardType;
   final Widget? prefixIcon;
   final Widget? suffixIcon;
+  final String? prefixText;
   final String? Function(String?)? validator;
   final void Function(String)? onChanged;
   final int? maxLength;
@@ -25,6 +26,7 @@ class KabaInput extends StatelessWidget {
     this.keyboardType,
     this.prefixIcon,
     this.suffixIcon,
+    this.prefixText,
     this.validator,
     this.onChanged,
     this.maxLength,
@@ -70,6 +72,7 @@ class KabaInput extends StatelessWidget {
                   : AppColors.textSecondaryLight,
             ),
             prefixIcon: prefixIcon,
+            prefixText: prefixText,
             suffixIcon: suffixIcon,
             counterText: "",
             filled: true,
@@ -96,10 +99,7 @@ class KabaInput extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: AppColors.accent,
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: AppColors.accent, width: 1.5),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,

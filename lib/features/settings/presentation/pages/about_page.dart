@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/kaba_card.dart';
 import '../../../../shared/widgets/kaba_background.dart';
 
@@ -21,7 +22,7 @@ class AboutPage extends StatelessWidget {
       body: KabaBackground(
         child: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.l),
             children: [
               Center(
                 child: Column(
@@ -41,10 +42,7 @@ class AboutPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Text(
-                      'KabaKaba',
-                      style: AppTextStyles.h1,
-                    ),
+                    Text('KabaKaba', style: AppTextStyles.h1),
                     Text(
                       'Version 1.0.0',
                       style: AppTextStyles.bodySmall.copyWith(
@@ -54,16 +52,13 @@ class AboutPage extends StatelessWidget {
                   ],
                 ),
               ).animate().fadeIn().scale(),
-              const SizedBox(height: 32),
+              const SizedBox(height: AppSpacing.xl),
               KabaCard(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Notre mission',
-                      style: AppTextStyles.h3,
-                    ),
+                    Text('Notre mission', style: AppTextStyles.h3),
                     const SizedBox(height: 12),
                     Text(
                       'Kabakaba est une solution de paiement digitale conçue pour faciliter les transactions au sein des campus universitaires. Nous visons à offrir une expérience fluide, rapide et sécurisée pour tous les étudiants et prestataires.',
@@ -72,16 +67,13 @@ class AboutPage extends StatelessWidget {
                   ],
                 ),
               ).animate().fadeIn(delay: 200.ms).slideY(),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.m),
               KabaCard(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Contactez-nous',
-                      style: AppTextStyles.h3,
-                    ),
+                    Text('Contactez-nous', style: AppTextStyles.h3),
                     const SizedBox(height: 12),
                     _buildContactItem(
                       icon: Icons.email_outlined,

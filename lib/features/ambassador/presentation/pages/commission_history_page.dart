@@ -3,7 +3,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/kaba_card.dart';
+import '../../../../shared/widgets/kaba_background.dart';
 
 class CommissionHistoryPage extends StatelessWidget {
   const CommissionHistoryPage({super.key});
@@ -15,23 +17,29 @@ class CommissionHistoryPage extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: AppColors.primary),
+          icon: Icon(
+            Icons.arrow_back_ios,
+            color: AppColors.textPrimary(context),
+          ),
           onPressed: () => context.pop(),
         ),
         title: const Text('Historique des commissions'),
         centerTitle: true,
       ),
-      body: SafeArea(
-        child: ListView.separated(
-          padding: const EdgeInsets.all(24),
-          itemCount: 10,
-          separatorBuilder: (context, index) => const SizedBox(height: 16),
-          itemBuilder: (context, index) {
-            return _CommissionItem(index: index)
-                .animate()
-                .fadeIn(delay: (index * 100).ms)
-                .slideX(begin: 0.1, end: 0);
-          },
+      body: KabaBackground(
+        child: SafeArea(
+          child: ListView.separated(
+            padding: const EdgeInsets.all(AppSpacing.l),
+            itemCount: 10,
+            separatorBuilder: (context, index) =>
+                const SizedBox(height: AppSpacing.l),
+            itemBuilder: (context, index) {
+              return _CommissionItem(index: index)
+                  .animate()
+                  .fadeIn(delay: (index * 100).ms)
+                  .slideX(begin: 0.1, end: 0);
+            },
+          ),
         ),
       ),
     );

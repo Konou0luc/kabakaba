@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/toast_helper.dart';
 import '../../../../shared/widgets/kaba_button.dart';
 import '../../../../shared/widgets/kaba_card.dart';
@@ -14,6 +15,8 @@ class AmbassadorDashboardPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -35,13 +38,13 @@ class AmbassadorDashboardPage extends StatelessWidget {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: const EdgeInsets.all(AppSpacing.l),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Card: Total Gains
                       KabaCard(
-                        padding: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(AppSpacing.l),
                         color: AppColors.primary,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -81,7 +84,7 @@ class AmbassadorDashboardPage extends StatelessWidget {
                           ],
                         ),
                       ).animate().fadeIn().slideY(begin: -0.2, end: 0),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.l),
                       // Stats Cards Row
                       Row(
                             children: [
@@ -102,14 +105,16 @@ class AmbassadorDashboardPage extends StatelessWidget {
                                       Text(
                                         '42',
                                         style: AppTextStyles.h2.copyWith(
-                                          color: AppColors.primary,
+                                          color: isDark
+                                              ? AppColors.white
+                                              : AppColors.primary,
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: AppSpacing.m),
                               Expanded(
                                 child: KabaCard(
                                   padding: const EdgeInsets.all(20),
@@ -139,12 +144,12 @@ class AmbassadorDashboardPage extends StatelessWidget {
                           .animate()
                           .fadeIn(delay: 200.ms)
                           .slideY(begin: 0.1, end: 0),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.l),
                       Text(
                         'Actions rapides',
                         style: AppTextStyles.h3,
                       ).animate().fadeIn(delay: 400.ms),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.m),
                       Row(
                             children: [
                               Expanded(
@@ -182,7 +187,7 @@ class AmbassadorDashboardPage extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: AppSpacing.m),
                               Expanded(
                                 child: KabaCard(
                                   padding: const EdgeInsets.all(12),
@@ -193,14 +198,18 @@ class AmbassadorDashboardPage extends StatelessWidget {
                                       Container(
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
-                                          color: AppColors.primary.withValues(
-                                            alpha: 0.1,
-                                          ),
+                                          color: isDark
+                                              ? AppColors.greyDarkMode
+                                              : AppColors.primary.withValues(
+                                                  alpha: 0.1,
+                                                ),
                                           shape: BoxShape.circle,
                                         ),
-                                        child: const Icon(
+                                        child: Icon(
                                           Icons.bar_chart_rounded,
-                                          color: AppColors.primary,
+                                          color: isDark
+                                              ? AppColors.white
+                                              : AppColors.primary,
                                           size: 24,
                                         ),
                                       ),
@@ -219,7 +228,7 @@ class AmbassadorDashboardPage extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: AppSpacing.m),
                               Expanded(
                                 child: KabaCard(
                                   padding: const EdgeInsets.all(12),
@@ -261,13 +270,13 @@ class AmbassadorDashboardPage extends StatelessWidget {
                           .animate()
                           .fadeIn(delay: 500.ms)
                           .slideY(begin: 0.1, end: 0),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.l),
                       // Last Commission
                       Text(
                         'Dernière commission',
                         style: AppTextStyles.h3,
                       ).animate().fadeIn(delay: 600.ms),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.m),
                       KabaCard(
                             padding: const EdgeInsets.all(16),
                             child: Row(
@@ -285,7 +294,7 @@ class AmbassadorDashboardPage extends StatelessWidget {
                                     color: AppColors.success,
                                   ),
                                 ),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: AppSpacing.m),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -319,7 +328,7 @@ class AmbassadorDashboardPage extends StatelessWidget {
                           .animate()
                           .fadeIn(delay: 700.ms)
                           .slideX(begin: 0.1, end: 0),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.l),
                       KabaButton(
                             text: 'Retirer mes gains',
                             onPressed: () {
@@ -331,7 +340,7 @@ class AmbassadorDashboardPage extends StatelessWidget {
                           .animate()
                           .fadeIn(delay: 800.ms)
                           .slideY(begin: 0.1, end: 0),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.l),
                     ],
                   ),
                 ),

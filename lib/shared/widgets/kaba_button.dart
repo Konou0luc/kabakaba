@@ -24,6 +24,7 @@ class KabaButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final child = isLoading
         ? const SizedBox(
             height: 20,
@@ -42,27 +43,24 @@ class KabaButton extends StatelessWidget {
                 const SizedBox(width: 8),
               ],
               Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(text),
-                ),
+                child: FittedBox(fit: BoxFit.scaleDown, child: Text(text)),
               ),
             ],
           );
 
     return SizedBox(
       width: fullWidth ? double.infinity : null,
-      child: _buildButton(child),
+      child: _buildButton(child, isDark),
     );
   }
 
-  Widget _buildButton(Widget child) {
+  Widget _buildButton(Widget child, bool isDark) {
     switch (type) {
       case KabaButtonType.primary:
         return ElevatedButton(
           onPressed: isLoading ? null : onPressed,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.accent, // Using Peach as primary CTA
+            backgroundColor: AppColors.accent,
             foregroundColor: AppColors.white,
           ),
           child: child,
@@ -71,7 +69,7 @@ class KabaButton extends StatelessWidget {
         return ElevatedButton(
           onPressed: isLoading ? null : onPressed,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary, // Using Indigo as secondary
+            backgroundColor: AppColors.primary,
             foregroundColor: AppColors.white,
           ),
           child: child,
@@ -79,13 +77,21 @@ class KabaButton extends StatelessWidget {
       case KabaButtonType.outline:
         return OutlinedButton(
           onPressed: isLoading ? null : onPressed,
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: AppColors.accent),
+            foregroundColor: AppColors.accent,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: AppRadius.largeBorderRadius,
+            ),
+          ),
           child: child,
         );
       case KabaButtonType.ghost:
         return TextButton(
           onPressed: isLoading ? null : onPressed,
           style: TextButton.styleFrom(
-            foregroundColor: AppColors.primary,
+            foregroundColor: isDark ? AppColors.white : AppColors.primary,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             shape: RoundedRectangleBorder(
               borderRadius: AppRadius.largeBorderRadius,

@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_shadows.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/kaba_card.dart';
 import '../../../../shared/widgets/kaba_button.dart';
 import '../../../../shared/widgets/kaba_background.dart';
@@ -29,7 +30,7 @@ class _HomePageState extends State<HomePage> {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: const EdgeInsets.all(AppSpacing.l),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -88,7 +89,6 @@ class _HomePageState extends State<HomePage> {
                               children: [
                                 Row(
                                   children: [
-                                   
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment:
@@ -153,6 +153,7 @@ class _HomePageState extends State<HomePage> {
                                     Expanded(
                                       child: KabaButton(
                                         text: 'Historique',
+                                        type: KabaButtonType.outline,
                                         onPressed: () {
                                           context.push('/transaction-history');
                                         },
@@ -247,16 +248,20 @@ class _HomePageState extends State<HomePage> {
                                                   : 'assets/images/onbording.webp',
                                               fit: BoxFit.cover,
                                               width: double.infinity,
-                                              errorBuilder: (context, error, stackTrace) {
-                                                return Container(
-                                                  color: AppColors.greyLight,
-                                                  child: const Icon(
-                                                    Icons.restaurant_rounded,
-                                                    size: 40,
-                                                    color: AppColors.primary,
-                                                  ),
-                                                );
-                                              },
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
+                                                    return Container(
+                                                      color:
+                                                          AppColors.greyLight,
+                                                      child: const Icon(
+                                                        Icons
+                                                            .restaurant_rounded,
+                                                        size: 40,
+                                                        color:
+                                                            AppColors.primary,
+                                                      ),
+                                                    );
+                                                  },
                                             ),
                                           ),
                                         ),

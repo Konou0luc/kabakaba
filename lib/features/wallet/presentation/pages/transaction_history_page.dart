@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/kaba_card.dart';
 
 import '../../../../shared/widgets/kaba_background.dart';
@@ -22,9 +23,10 @@ class TransactionHistoryPage extends StatelessWidget {
       body: KabaBackground(
         child: SafeArea(
           child: ListView.separated(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.l),
             itemCount: 10,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            separatorBuilder: (context, index) =>
+                const SizedBox(height: AppSpacing.m),
             itemBuilder: (context, index) {
               final isNegative = index % 2 == 0;
               return _TransactionHistoryItem(
@@ -79,9 +81,7 @@ class _TransactionHistoryItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  isNegative
-                      ? 'À +225 01 23 45 67'
-                      : 'Mobile Money',
+                  isNegative ? 'À +225 01 23 45 67' : 'Mobile Money',
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.grey,
                   ),
@@ -100,12 +100,8 @@ class _TransactionHistoryItem extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                index == 0
-                    ? 'Aujourd\'hui, 14h30'
-                    : 'Il y a ${index + 1}h',
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.grey,
-                ),
+                index == 0 ? 'Aujourd\'hui, 14h30' : 'Il y a ${index + 1}h',
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.grey),
               ),
             ],
           ),

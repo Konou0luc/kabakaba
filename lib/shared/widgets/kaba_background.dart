@@ -36,8 +36,8 @@ class KabaBackground extends StatelessWidget {
             height: 300,
             decoration: BoxDecoration(
               color: isDark
-                  ? const Color(0xFF4A3B6B).withValues(alpha: 0.35)
-                  : AppColors.primary.withValues(alpha: 0.12),
+                  ? const Color(0xFF4A3B6B).withValues(alpha: 0.5)
+                  : AppColors.primary.withValues(alpha: 0.18),
               shape: BoxShape.circle,
             ),
           ),
@@ -50,8 +50,23 @@ class KabaBackground extends StatelessWidget {
             height: 350,
             decoration: BoxDecoration(
               color: isDark
-                  ? const Color(0xFF1B2A6B).withValues(alpha: 0.25)
-                  : AppColors.accent.withValues(alpha: 0.05),
+                  ? const Color(0xFF1B2A6B).withValues(alpha: 0.4)
+                  : AppColors.accent.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+        // New circle - middle left
+        Positioned(
+          top: 200,
+          left: -80,
+          child: Container(
+            width: 250,
+            height: 250,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF7B5D9E).withValues(alpha: 0.3)
+                  : AppColors.primary.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
           ),

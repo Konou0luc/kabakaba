@@ -15,10 +15,16 @@ import '../../features/menu/presentation/pages/menu_detail_page.dart';
 import '../../features/cart/presentation/pages/cart_page.dart';
 import '../../features/wallet/presentation/pages/wallet_page.dart';
 import '../../features/wallet/presentation/pages/recharge_wallet_page.dart';
+import '../../features/wallet/presentation/pages/recharge_step1_page.dart';
+import '../../features/wallet/presentation/pages/recharge_step2_self_page.dart';
+import '../../features/wallet/presentation/pages/recharge_step2_friend_page.dart';
+import '../../features/wallet/presentation/pages/recharge_step3_page.dart';
+import '../../features/wallet/presentation/pages/recharge_confirmation_page.dart';
 import '../../features/wallet/presentation/pages/send_money_page.dart';
 import '../../features/wallet/presentation/pages/transaction_history_page.dart';
 import '../../features/orders/presentation/pages/order_history_page.dart';
-import '../../features/orders/presentation/pages/order_tracking_page.dart';
+
+import '../../features/orders/presentation/pages/packaging_page.dart';
 import '../../features/payments/presentation/pages/payment_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/settings/presentation/pages/notifications_page.dart';
@@ -84,6 +90,32 @@ GoRouter router(RouterRef ref) {
         builder: (context, state) => const RechargeWalletPage(),
       ),
       GoRoute(
+        path: '/recharge/step1',
+        builder: (context, state) => const RechargeStep1Page(),
+      ),
+      GoRoute(
+        path: '/recharge/step2/self',
+        builder: (context, state) => const RechargeStep2SelfPage(),
+      ),
+      GoRoute(
+        path: '/recharge/step2/friend',
+        builder: (context, state) => const RechargeStep2FriendPage(),
+      ),
+      GoRoute(
+        path: '/recharge/step3',
+        builder: (context, state) {
+          final data = state.extra as Map<String, dynamic>;
+          return RechargeStep3Page(data: data);
+        },
+      ),
+      GoRoute(
+        path: '/recharge/confirmation',
+        builder: (context, state) {
+          final data = state.extra as Map<String, dynamic>;
+          return RechargeConfirmationPage(data: data);
+        },
+      ),
+      GoRoute(
         path: '/send-money',
         builder: (context, state) => const SendMoneyPage(),
       ),
@@ -95,9 +127,13 @@ GoRouter router(RouterRef ref) {
         path: '/order-history',
         builder: (context, state) => const OrderHistoryPage(),
       ),
+
       GoRoute(
-        path: '/order-tracking',
-        builder: (context, state) => const OrderTrackingPage(),
+        path: '/packaging',
+        builder: (context, state) {
+          final data = state.extra as Map<String, dynamic>;
+          return PackagingPage(data: data);
+        },
       ),
       GoRoute(
         path: '/payment',

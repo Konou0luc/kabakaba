@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/kaba_background.dart';
 import '../../../../shared/widgets/step_indicator.dart';
 import '../../../../shared/widgets/kaba_button.dart';
@@ -58,7 +59,7 @@ class CampusSelectionPage extends StatelessWidget {
             children: [
               // Contenu supérieur (toujours affiché)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -66,7 +67,7 @@ class CampusSelectionPage extends StatelessWidget {
                       currentStep: 4,
                       totalSteps: 5,
                     ).animate().fadeIn(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.l),
                     Text(
                       'Etape 4/5',
                       style: AppTextStyles.labelMedium.copyWith(
@@ -96,17 +97,17 @@ class CampusSelectionPage extends StatelessWidget {
                   title: 'Choix du campus',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Sélectionne ton établissement.',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.greyDark,
+                    children: [
+                      Text(
+                        'Sélectionne ton établissement.',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.greyDark,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      height: 250,
-                      child: ListView.builder(
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        height: 250,
+                        child: ListView.builder(
                           itemCount: campuses.length,
                           itemBuilder: (context, index) {
                             final campus = campuses[index];
@@ -193,7 +194,7 @@ class CampusSelectionPage extends StatelessWidget {
                           });
                         },
                       ).animate().fadeIn(delay: 800.ms),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.l),
                     ],
                   ),
                 ),

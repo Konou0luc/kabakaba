@@ -7,6 +7,7 @@ class KabaCard extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
   final VoidCallback? onTap;
   final Color? color;
+  final Color? borderColor;
   final bool hasShadow;
   final double? width;
   final double? height;
@@ -17,6 +18,7 @@ class KabaCard extends StatelessWidget {
     this.padding,
     this.onTap,
     this.color,
+    this.borderColor,
     this.hasShadow = true,
     this.width,
     this.height,
@@ -34,6 +36,9 @@ class KabaCard extends StatelessWidget {
         color: cardColor,
         borderRadius: AppRadius.largeBorderRadius,
         boxShadow: hasShadow ? AppShadows.soft : null,
+        border: borderColor != null
+            ? Border.all(color: borderColor!, width: 2)
+            : null,
       ),
       child: Material(
         color: Colors.transparent,

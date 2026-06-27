@@ -8,6 +8,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/utils/toast_helper.dart';
 import '../../../../shared/widgets/kaba_button.dart';
 import '../../../../shared/widgets/kaba_card.dart';
+import '../../../../shared/widgets/kaba_background.dart';
 
 class MenuDetailPage extends StatefulWidget {
   const MenuDetailPage({super.key});
@@ -21,156 +22,171 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Row(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(AppRadius.large),
-                  border: Border.all(color: AppColors.greyLight),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return KabaBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(AppRadius.large),
+                    border: Border.all(color: AppColors.greyLight),
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          setState(() {
+                            if (_quantity > 1) _quantity--;
+                          });
+                        },
+                        icon: const Icon(
+                          AppIcons.remove,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          _quantity.toString(),
+                          style: AppTextStyles.h3,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          setState(() => _quantity++);
+                        },
+                        icon: const Icon(
+                          AppIcons.add,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Row(
+                const SizedBox(width: 16),
+                Expanded(
+                  child: KabaButton(
+                    text: 'Ajouter au panier - ${1200 * _quantity} FCFA',
+                    onPressed: () {
+                      ToastHelper.showSuccess(
+                        '$_quantity produit(s) ajouté(s) au panier !',
+                      );
+                      context.pop();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        body: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 300,
+              pinned: true,
+              backgroundColor: AppColors.background(context),
+              elevation: 0,
+              leading: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: GestureDetector(
+                  onTap: () => context.pop(),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      AppIcons.arrowLeft,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.favorite_border_rounded,
+                      color: AppColors.grey,
+                    ),
+                  ),
+                ),
+              ],
+              flexibleSpace: FlexibleSpaceBar(
+                background: Image.asset(
+                  'assets/images/plat/plat1.webp',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    IconButton(
-                      onPressed: () {
-                        setState(() {
-                          if (_quantity > 1) _quantity--;
-                        });
-                      },
-                      icon: const Icon(
-                        AppIcons.remove,
-                        color: AppColors.primary,
+                    Text(
+                      'Plat Attiéké',
+                      style: AppTextStyles.h1,
+                    ).animate().fadeIn().slideX(),
+                    const SizedBox(height: 8),
+                    Text(
+                      '1 200 FCFA',
+                      style: AppTextStyles.h2.copyWith(
+                        color: isDark ? AppColors.white : AppColors.primary,
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        _quantity.toString(),
-                        style: AppTextStyles.h3,
+                    ).animate().fadeIn(delay: 100.ms),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Description',
+                      style: AppTextStyles.h3,
+                    ).animate().fadeIn(delay: 200.ms),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Attiéké frais avec poisson braisé, sauce pimentée et accompagnements variés.',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.greyDark,
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        setState(() => _quantity++);
-                      },
-                      icon: const Icon(AppIcons.add, color: AppColors.primary),
-                    ),
+                    ).animate().fadeIn(delay: 300.ms),
+                    const SizedBox(height: 32),
+                    Text(
+                      'Personnalisation',
+                      style: AppTextStyles.h3,
+                    ).animate().fadeIn(delay: 400.ms),
+                    const SizedBox(height: 16),
+                    _CustomizationSection(
+                          title: 'Choix du poisson',
+                          options: const ['Poisson frais', 'Poulet', 'Viande'],
+                        )
+                        .animate()
+                        .fadeIn(delay: 500.ms)
+                        .slideY(begin: 0.2, end: 0),
+                    const SizedBox(height: 24),
+                    _CustomizationSection(
+                          title: 'Accompagnements',
+                          options: const ['Salade', 'Alloco', 'Plantain'],
+                        )
+                        .animate()
+                        .fadeIn(delay: 600.ms)
+                        .slideY(begin: 0.2, end: 0),
+                    const SizedBox(height: 32),
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: KabaButton(
-                  text: 'Ajouter au panier - ${1200 * _quantity} FCFA',
-                  onPressed: () {
-                    ToastHelper.showSuccess(
-                      '$_quantity produit(s) ajouté(s) au panier !',
-                    );
-                    context.pop();
-                  },
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ),
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 300,
-            pinned: true,
-            backgroundColor: AppColors.background(context),
-            elevation: 0,
-            leading: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: GestureDetector(
-                onTap: () => context.pop(),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    AppIcons.arrowLeft,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.favorite_border_rounded,
-                    color: AppColors.grey,
-                  ),
-                ),
-              ),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: Image.asset(
-                'assets/images/plat/plat1.webp',
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Plat Attiéké',
-                    style: AppTextStyles.h1,
-                  ).animate().fadeIn().slideX(),
-                  const SizedBox(height: 8),
-                  Text(
-                    '1 200 FCFA',
-                    style: AppTextStyles.h2.copyWith(color: AppColors.primary),
-                  ).animate().fadeIn(delay: 100.ms),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Description',
-                    style: AppTextStyles.h3,
-                  ).animate().fadeIn(delay: 200.ms),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Attiéké frais avec poisson braisé, sauce pimentée et accompagnements variés.',
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.greyDark,
-                    ),
-                  ).animate().fadeIn(delay: 300.ms),
-                  const SizedBox(height: 32),
-                  Text(
-                    'Personnalisation',
-                    style: AppTextStyles.h3,
-                  ).animate().fadeIn(delay: 400.ms),
-                  const SizedBox(height: 16),
-                  _CustomizationSection(
-                    title: 'Choix du poisson',
-                    options: const ['Poisson frais', 'Poulet', 'Viande'],
-                  ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.2, end: 0),
-                  const SizedBox(height: 24),
-                  _CustomizationSection(
-                    title: 'Accompagnements',
-                    options: const ['Salade', 'Alloco', 'Plantain'],
-                  ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.2, end: 0),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

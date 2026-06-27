@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../../../../shared/widgets/kaba_card.dart';
 
@@ -71,41 +72,15 @@ class SettingsPage extends ConsumerWidget {
       body: KabaBackground(
         child: SafeArea(
           child: ListView.separated(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.l),
             itemCount: settingsItems.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            separatorBuilder: (context, index) =>
+                const SizedBox(height: AppSpacing.m),
             itemBuilder: (context, index) {
               final item = settingsItems[index];
               return KabaCard(
                 onTap: item.onTap != null ? () => item.onTap!(context) : null,
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: item.color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(item.icon, color: item.color),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(item.title, style: AppTextStyles.bodyLarge),
-                    ),
-                    if (item.isToggle)
-                      Switch(
-                        value: item.toggleValue,
-                        onChanged: item.onToggle,
-                        activeThumbColor: AppColors.primary,
-                      )
-                    else
-                      const Icon(
-                        AppIcons.arrowRight,
-                        color: AppColors.grey,
-                        size: 16,
-                      ),
-                  ],
-                ),
+                child: _SettingItemWidget(item: item),
               );
             },
           ),
@@ -133,4 +108,41 @@ class _SettingItem {
     this.toggleValue = false,
     this.onToggle,
   });
+}
+
+class _SettingItemWidget extends StatelessWidget {
+  final _SettingItem item;
+
+  const _SettingItemWidget({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconColor = (item.color == AppColors.primary && isDark)
+        ? AppColors.white
+        : item.color;
+
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: item.color.withValues(alpha: isDark ? 0.2 : 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(item.icon, color: iconColor),
+        ),
+        const SizedBox(width: 16),
+        Expanded(child: Text(item.title, style: AppTextStyles.bodyLarge)),
+        if (item.isToggle)
+          Switch(
+            value: item.toggleValue,
+            onChanged: item.onToggle,
+            activeThumbColor: isDark ? AppColors.white : AppColors.primary,
+          )
+        else
+          const Icon(AppIcons.arrowRight, color: AppColors.grey, size: 16),
+      ],
+    );
+  }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/kaba_card.dart';
 import '../../../../shared/widgets/kaba_background.dart';
 
@@ -25,9 +26,9 @@ class WalletPage extends StatelessWidget {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: const EdgeInsets.all(AppSpacing.l),
                   child: KabaCard(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(AppSpacing.l),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -41,12 +42,13 @@ class WalletPage extends StatelessWidget {
                         Text(
                           '25 000 FCFA',
                           style: AppTextStyles.h1.copyWith(
-                            color: Theme.of(context).brightness == Brightness.dark
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
                                 ? AppColors.white
                                 : AppColors.primary,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: AppSpacing.l),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
@@ -54,7 +56,7 @@ class WalletPage extends StatelessWidget {
                               icon: Icons.add_circle_outline_rounded,
                               label: 'Recharger',
                               color: AppColors.primary,
-                              onTap: () => context.push('/recharge-wallet'),
+                              onTap: () => context.push('/recharge/step1'),
                             ),
                             _WalletAction(
                               icon: Icons.send_rounded,
@@ -77,7 +79,7 @@ class WalletPage extends StatelessWidget {
               ),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -88,18 +90,15 @@ class WalletPage extends StatelessWidget {
                 ),
               ),
               SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24.0,
-                        vertical: 6.0,
-                      ),
-                      child: _TransactionItem(),
-                    ).animate().fadeIn(delay: (200 + (index * 50)).ms).slideX();
-                  },
-                  childCount: 10,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24.0,
+                      vertical: 6.0,
+                    ),
+                    child: _TransactionItem(),
+                  ).animate().fadeIn(delay: (200 + (index * 50)).ms).slideX();
+                }, childCount: 10),
               ),
             ],
           ),
@@ -124,6 +123,11 @@ class _WalletAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconColor = (color == AppColors.primary && isDark)
+        ? AppColors.white
+        : color;
+
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -131,10 +135,10 @@ class _WalletAction extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withValues(alpha: isDark ? 0.2 : 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Icon(icon, color: color),
+            child: Icon(icon, color: iconColor),
           ),
           const SizedBox(height: 8),
           Text(

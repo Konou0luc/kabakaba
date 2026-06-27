@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/kaba_card.dart';
 
 import '../../../../shared/widgets/kaba_background.dart';
@@ -22,14 +23,14 @@ class NotificationsPage extends StatelessWidget {
       body: KabaBackground(
         child: SafeArea(
           child: ListView.separated(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.l),
             itemCount: 5,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            separatorBuilder: (context, index) =>
+                const SizedBox(height: AppSpacing.m),
             itemBuilder: (context, index) {
-              return _NotificationItem(index: index)
-                  .animate()
-                  .fadeIn(delay: (index * 50).ms)
-                  .slideX();
+              return _NotificationItem(
+                index: index,
+              ).animate().fadeIn(delay: (index * 50).ms).slideX();
             },
           ),
         ),
@@ -45,6 +46,7 @@ class _NotificationItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isUnread = index < 2;
     return KabaCard(
       color: isUnread ? AppColors.surfaceSecondary(context) : null,
@@ -55,14 +57,16 @@ class _NotificationItem extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: (index % 2 == 0 ? AppColors.primary : AppColors.accent)
-                  .withValues(alpha: 0.1),
+                  .withValues(alpha: isDark ? 0.2 : 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               index % 2 == 0
                   ? Icons.notifications_rounded
                   : Icons.delivery_dining_rounded,
-              color: index % 2 == 0 ? AppColors.primary : AppColors.accent,
+              color: index % 2 == 0
+                  ? (isDark ? Colors.white : AppColors.primary)
+                  : AppColors.accent,
             ),
           ),
           const SizedBox(width: 16),

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/kaba_card.dart';
 import '../../../../features/auth/data/auth_provider.dart';
 
@@ -26,7 +27,7 @@ class ProfilePage extends ConsumerWidget {
       body: KabaBackground(
         child: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.l),
             children: [
               Center(
                 child: Column(
@@ -60,18 +61,19 @@ class ProfilePage extends ConsumerWidget {
                 final index = _profileMenuItems.indexOf(item);
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
-                  child: _ProfileMenuItem(
-                    item: item,
-                    onLogout: () async {
-                      await ref.read(authProvider.notifier).logout();
-                      if (context.mounted) {
-                        context.go('/');
-                      }
-                    },
-                  )
-                      .animate()
-                      .fadeIn(delay: (200 + (index * 100)).ms)
-                      .slideX(begin: 0.1, end: 0),
+                  child:
+                      _ProfileMenuItem(
+                            item: item,
+                            onLogout: () async {
+                              await ref.read(authProvider.notifier).logout();
+                              if (context.mounted) {
+                                context.go('/');
+                              }
+                            },
+                          )
+                          .animate()
+                          .fadeIn(delay: (200 + (index * 100)).ms)
+                          .slideX(begin: 0.1, end: 0),
                 );
               }).toList(),
             ],
@@ -90,10 +92,15 @@ class _ProfileMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconColor = (item.color == AppColors.primary && isDark)
+        ? AppColors.white
+        : item.color;
+
     return KabaCard(
-      onTap: item.onTap != null 
-        ? () => item.onTap!(context) 
-        : onLogout != null 
+      onTap: item.onTap != null
+          ? () => item.onTap!(context)
+          : onLogout != null
           ? () => showDialog(
               context: context,
               builder: (context) => AlertDialog(
@@ -120,10 +127,10 @@ class _ProfileMenuItem extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: item.color.withValues(alpha: 0.1),
+              color: item.color.withValues(alpha: isDark ? 0.2 : 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(item.icon, color: item.color),
+            child: Icon(item.icon, color: iconColor),
           ),
           const SizedBox(width: 16),
           Expanded(child: Text(item.title, style: AppTextStyles.bodyLarge)),
@@ -158,12 +165,6 @@ final _profileMenuItems = [
     title: 'Modifier le profil',
     color: AppColors.primary,
     onTap: (context) => context.push('/edit-profile'),
-  ),
-  _ProfileMenuModel(
-    icon: Icons.track_changes_rounded,
-    title: 'Suivi de ma commande',
-    color: AppColors.success,
-    onTap: (context) => context.push('/order-tracking'),
   ),
   _ProfileMenuModel(
     icon: AppIcons.history,
