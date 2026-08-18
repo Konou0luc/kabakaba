@@ -1,118 +1,420 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_text_styles.dart';
-import '../../../../core/theme/app_spacing.dart';
-import '../../../../shared/widgets/kaba_card.dart';
-import '../../../../shared/widgets/kaba_background.dart';
+import '../../../../shared/widgets/light_page_scaffold.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('À propos'),
-        elevation: 0,
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-      ),
-      extendBodyBehindAppBar: true,
-      body: KabaBackground(
-        child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(AppSpacing.l),
+    return LightPageScaffold(
+      title: 'À propos',
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: LightIconButton(icon: Icons.share_outlined, onTap: () {}),
+        ),
+      ],
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _buildHero(),
+          const SizedBox(height: 20),
+          LightSectionTitle(title: 'NOTRE MISSION', icon: Icons.flag_rounded),
+          const SizedBox(height: 6),
+          _buildCard(
+            icon: Icons.favorite_rounded,
+            iconColor: LightPageColors.red,
+            iconBg: LightPageColors.redLight,
+            title: 'Faciliter la vie sur campus',
+            desc:
+                'KabaKaba est une solution de paiement digitale conçue pour simplifier les transactions au sein des campus universitaires togolais. Notre mission : rendre la restauration, les petits achats et les paiements de services fluides, rapides et sécurisés pour tous les étudiants et prestataires.',
+          ),
+          const SizedBox(height: 14),
+          _buildCard(
+            icon: Icons.visibility_rounded,
+            iconColor: LightPageColors.indigo,
+            iconBg: LightPageColors.indigoLight,
+            title: 'Notre vision',
+            desc:
+                'Devenir le compagnon incontournable de chaque étudiant africain : un portefeuille unique pour manger, payer, économiser, et même gagner de l\'argent grâce au programme ambassadeur.',
+          ),
+          const SizedBox(height: 20),
+          LightSectionTitle(
+            title: 'CONTACTEZ-NOUS',
+            icon: Icons.contact_support_rounded,
+          ),
+          const SizedBox(height: 6),
+          LightSettingsCard(
             children: [
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: Image.asset(
-                          'assets/icons/kabakaba.jpeg',
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text('KabaKaba', style: AppTextStyles.h1),
-                    Text(
-                      'Version 1.0.0',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ).animate().fadeIn().scale(),
-              const SizedBox(height: AppSpacing.xl),
-              KabaCard(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Notre mission', style: AppTextStyles.h3),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Kabakaba est une solution de paiement digitale conçue pour faciliter les transactions au sein des campus universitaires. Nous visons à offrir une expérience fluide, rapide et sécurisée pour tous les étudiants et prestataires.',
-                      style: AppTextStyles.bodyMedium,
-                    ),
-                  ],
-                ),
-              ).animate().fadeIn(delay: 200.ms).slideY(),
-              const SizedBox(height: AppSpacing.m),
-              KabaCard(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Contactez-nous', style: AppTextStyles.h3),
-                    const SizedBox(height: 12),
-                    _buildContactItem(
-                      icon: Icons.email_outlined,
-                      label: 'Email',
-                      value: 'support@kabakaba.ci',
-                    ),
-                    const SizedBox(height: 12),
-                    _buildContactItem(
-                      icon: Icons.language_rounded,
-                      label: 'Site web',
-                      value: 'www.kabakaba.ci',
-                    ),
-                  ],
-                ),
-              ).animate().fadeIn(delay: 400.ms).slideY(),
+              _contactRow(
+                icon: Icons.email_outlined,
+                label: 'Email',
+                value: 'hello@kabakaba.app',
+                color: LightPageColors.indigo,
+              ),
+              _contactRow(
+                icon: Icons.phone_outlined,
+                label: 'Téléphone',
+                value: '+228 90 00 00 00',
+                color: LightPageColors.green,
+              ),
+              _contactRow(
+                icon: Icons.language_outlined,
+                label: 'Site web',
+                value: 'www.kabakaba.app',
+                color: LightPageColors.orange,
+              ),
+              _contactRow(
+                icon: Icons.place_outlined,
+                label: 'Siège',
+                value: 'Lomé, Togo',
+                color: LightPageColors.red,
+              ),
             ],
           ),
-        ),
+          const SizedBox(height: 20),
+          LightSectionTitle(title: 'NOS VALEURS', icon: Icons.groups_rounded),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: _valueCard(
+                  icon: Icons.security_rounded,
+                  iconColor: LightPageColors.indigo,
+                  iconBg: LightPageColors.indigoLight,
+                  title: 'Sécurité',
+                  desc: 'Paiements chiffrés et 100% traçables.',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _valueCard(
+                  icon: Icons.bolt_rounded,
+                  iconColor: LightPageColors.warning,
+                  iconBg: LightPageColors.warningLight,
+                  title: 'Rapidité',
+                  desc: 'Transactions validées en quelques secondes.',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _valueCard(
+                  icon: Icons.people_alt_rounded,
+                  iconColor: LightPageColors.orange,
+                  iconBg: LightPageColors.orangeLight,
+                  title: 'Communauté',
+                  desc: 'Conçu avec et pour les étudiants.',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _valueCard(
+                  icon: Icons.public_rounded,
+                  iconColor: LightPageColors.green,
+                  iconBg: LightPageColors.greenLight,
+                  title: 'Impact',
+                  desc: 'Valoriser les prestataires locaux.',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          LightSectionTitle(
+            title: 'INFORMATIONS LÉGALES',
+            icon: Icons.gavel_rounded,
+          ),
+          const SizedBox(height: 6),
+          LightSettingsCard(
+            children: [
+              LightNavRow(
+                icon: Icons.description_outlined,
+                title: 'Conditions d\'utilisation',
+                onTap: () {},
+              ),
+              LightNavRow(
+                icon: Icons.lock_outline_rounded,
+                title: 'Politique de confidentialité',
+                onTap: () {},
+              ),
+              LightNavRow(
+                icon: Icons.receipt_long_outlined,
+                title: 'Mentions légales',
+                onTap: () {},
+              ),
+              LightNavRow(
+                icon: Icons.cookie_outlined,
+                title: 'Gestion des cookies',
+                onTap: () {},
+              ),
+              LightNavRow(
+                icon: Icons.verified_outlined,
+                title: 'Licences & Open Source',
+                onTap: () => showLicensePage(context: context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: LightButton(
+              text: 'Noter KabaKaba sur le Store',
+              icon: Icons.star_rate_rounded,
+              onPressed: () {},
+            ),
+          ),
+          const SizedBox(height: 18),
+          Center(
+            child: Column(
+              children: [
+                Text(
+                  'KabaKaba · Version 1.0.0 (build 42)',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: LightPageColors.text2,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '© 2025 KabaKaba SAS. Tous droits réservés.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: LightPageColors.muted,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _socialBtn(Icons.facebook_rounded, const Color(0xFF1877F2)),
+                    const SizedBox(width: 10),
+                    _socialBtn(
+                      Icons.flutter_dash_rounded,
+                      const Color(0xFF000000),
+                    ),
+                    const SizedBox(width: 10),
+                    _socialBtn(
+                      Icons.chat_bubble_rounded,
+                      const Color(0xFF25D366),
+                    ),
+                    const SizedBox(width: 10),
+                    _socialBtn(
+                      Icons.alternate_email_rounded,
+                      const Color(0xFF1DA1F2),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildContactItem({
+  Widget _buildHero() {
+    return LightCard(
+      padding: const EdgeInsets.all(18),
+      borderRadius: 20,
+      child: Column(
+        children: [
+          Container(
+            width: 84,
+            height: 84,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF1B2A6B), Color(0xFFF07840)],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: LightPageColors.orange.withValues(alpha: 0.25),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                  spreadRadius: -4,
+                ),
+              ],
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              'KB',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 30,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'KabaKaba',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: LightPageColors.text,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            'Le portefeuille solidaire des campus',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: LightPageColors.muted,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              LightBadge(
+                text: '⭐ 4.9 sur 5',
+                bgColor: LightPageColors.warningLight,
+                color: LightPageColors.warning,
+              ),
+              const SizedBox(width: 8),
+              LightBadge(
+                text: '👥 25 000+ utilisateurs',
+                bgColor: LightPageColors.greenLight,
+                color: LightPageColors.green,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCard({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String title,
+    required String desc,
+  }) {
+    return LightCard(
+      padding: const EdgeInsets.all(14),
+      borderRadius: 16,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 20, color: iconColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                    color: LightPageColors.text,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  desc,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: LightPageColors.text2,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _valueCard({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String title,
+    required String desc,
+  }) {
+    return LightCard(
+      padding: const EdgeInsets.all(12),
+      borderRadius: 14,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 17, color: iconColor),
+          ),
+          const SizedBox(height: 9),
+          Text(
+            title,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              color: LightPageColors.text,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            desc,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: LightPageColors.muted,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _contactRow({
     required IconData icon,
     required String label,
     required String value,
+    required Color color,
   }) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: AppColors.accent),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: AppTextStyles.caption),
-            Text(value, style: AppTextStyles.bodyMedium),
-          ],
-        ),
-      ],
+    final bg = color.withValues(alpha: 0.1);
+    return LightNavRow(icon: icon, title: label, subtitle: value);
+  }
+
+  Widget _socialBtn(IconData icon, Color color) {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: LightPageColors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: LightPageColors.border, width: 1),
+      ),
+      alignment: Alignment.center,
+      child: Icon(icon, size: 16, color: color),
     );
   }
 }

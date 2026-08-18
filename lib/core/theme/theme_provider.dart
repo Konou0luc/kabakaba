@@ -27,12 +27,12 @@ class ThemeModeNotifier extends Notifier<AppThemeMode> {
       if (savedTheme != null) {
         return AppThemeMode.values.firstWhere(
           (mode) => mode.name == savedTheme,
-          orElse: () => AppThemeMode.light,
+          orElse: () => AppThemeMode.dark,
         );
       }
-      return AppThemeMode.light;
+      return AppThemeMode.dark;
     } catch (e) {
-      return AppThemeMode.light;
+      return AppThemeMode.dark;
     }
   }
 

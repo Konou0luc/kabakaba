@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/kaba_card.dart';
@@ -13,18 +12,12 @@ class AmbassadorStatsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: AppColors.textPrimary(context),
-          ),
-          onPressed: () => context.pop(),
-        ),
         title: const Text('Statistiques'),
+        elevation: 0,
         centerTitle: true,
+        backgroundColor: Colors.transparent,
       ),
       body: KabaBackground(
         child: SafeArea(

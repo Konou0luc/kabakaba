@@ -13,25 +13,21 @@ class AmbassadorPresentationPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        title: const Text('Devenez Ambassadeur'),
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: AppColors.textPrimary(context),
-          ),
-          onPressed: () => context.pop(),
-        ),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
       ),
       body: KabaBackground(
         child: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Spacer(),
+                const SizedBox(height: 72),
                 Text(
                   'Devenez\nAmbassadeur 👑',
                   style: AppTextStyles.h1.copyWith(
@@ -71,7 +67,7 @@ class AmbassadorPresentationPage extends StatelessWidget {
                     ).animate().fadeIn(delay: 800.ms).slideY(begin: 0.2),
                   ],
                 ),
-                const Spacer(),
+                const SizedBox(height: 32),
                 KabaButton(
                   text: 'Je suis intéressé !',
                   onPressed: () => context.push('/ambassador-signup'),

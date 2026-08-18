@@ -2,13 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_text_styles.dart';
-import '../../../../core/theme/app_shadows.dart';
-import '../../../../core/theme/app_spacing.dart';
-import '../../../../shared/widgets/kaba_card.dart';
-import '../../../../shared/widgets/kaba_button.dart';
-import '../../../../shared/widgets/kaba_background.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -18,449 +12,557 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  bool _isBalanceVisible = true;
-  static const String _balance = '15 000';
+  static const String _balance = '5 000';
+
+  final List<Map<String, dynamic>> _quickActions = [
+    {
+      'icon': Icons.shopping_bag_outlined,
+      'label': 'Commander',
+      'route': '/canteen-list',
+    },
+    {
+      'icon': Icons.account_balance_wallet_outlined,
+      'label': 'Portefeuille',
+      'route': '/wallet',
+    },
+    {
+      'icon': Icons.receipt_long_outlined,
+      'label': 'Commandes',
+      'route': '/order-history',
+    },
+    {
+      'icon': Icons.person_add_alt_outlined,
+      'label': 'Parrainage',
+      'route': '/ambassador-presentation',
+    },
+    {
+      'icon': Icons.school_outlined,
+      'label': 'Cantines',
+      'route': '/canteen-list',
+    },
+    {
+      'icon': Icons.help_outline_rounded,
+      'label': 'Aide',
+      'route': '/help-support',
+    },
+    {
+      'icon': Icons.add_circle_outline_rounded,
+      'label': 'Recharger',
+      'route': '/recharge-wallet',
+    },
+    {
+      'icon': Icons.lock_outline_rounded,
+      'label': 'Sécurité',
+      'route': '/settings',
+    },
+    {'icon': Icons.apps_rounded, 'label': 'Tout voir', 'route': null},
+  ];
+
+  final List<Map<String, String>> _canteens = [
+    {'name': 'Chez Mama Afi'},
+    {'name': 'Resto Campus 2'},
+    {'name': 'Le Petit Coin'},
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: KabaBackground(
-        child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.l),
-                  child: Column(
+      backgroundColor: AppColors.indigoDark,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // Hero Section with gradient
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(22, 18, 22, 34),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.primary, AppColors.indigoDark],
+                  transform: const GradientRotation(2.705),
+                ),
+              ),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Decorative circles
+                  Positioned(
+                    top: -60,
+                    right: -50,
+                    child: Container(
+                      width: 170,
+                      height: 170,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.accent.withValues(alpha: 0.16),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: -90,
+                    left: -50,
+                    child: Container(
+                      width: 160,
+                      height: 160,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.white.withValues(alpha: 0.04),
+                      ),
+                    ),
+                  ),
+                  // Content
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Top bar: greeting + icons
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Bonjour, Luc 👋', style: AppTextStyles.h2),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    AppIcons.location,
-                                    size: 14,
-                                    color: AppColors.accent,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Campus de Cocody',
-                                    style: AppTextStyles.bodySmall.copyWith(
-                                      color: AppColors.grey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          GestureDetector(
-                            onTap: () => context.push('/notifications'),
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).cardColor,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color:
-                                      Theme.of(context).brightness ==
-                                          Brightness.light
-                                      ? AppColors.greyLight
-                                      : AppColors.greyLightDarkMode,
-                                ),
-                              ),
-                              child: Icon(
-                                AppIcons.notification,
-                                color: AppColors.textPrimary(context),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ).animate().fadeIn().slideY(begin: -0.2, end: 0),
-                      const SizedBox(height: 24),
-                      KabaCard(
-                            padding: const EdgeInsets.all(16),
+                          Expanded(
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Solde tickets',
-                                            style: AppTextStyles.bodySmall
-                                                .copyWith(
-                                                  color: AppColors.grey,
-                                                ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            _isBalanceVisible
-                                                ? '$_balance tickets'
-                                                : '••••••••',
-                                            style: AppTextStyles.h2.copyWith(
-                                              color: AppColors.textPrimary(
-                                                context,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    IconButton(
-                                      onPressed: () {
-                                        setState(() {
-                                          _isBalanceVisible =
-                                              !_isBalanceVisible;
-                                        });
-                                      },
-                                      icon: Icon(
-                                        _isBalanceVisible
-                                            ? Icons.visibility_off_rounded
-                                            : Icons.visibility_rounded,
-                                        color: AppColors.grey,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      onPressed: () {},
-                                      icon: const Icon(
-                                        Icons.refresh_rounded,
-                                        color: AppColors.accent,
-                                      ),
-                                    ),
-                                  ],
+                                Text(
+                                  'Bon retour',
+                                  style: AppTextStyles.greetLabel,
                                 ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: KabaButton(
-                                        text: 'Recharger',
-                                        onPressed: () {
-                                          context.push('/recharge-wallet');
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: KabaButton(
-                                        text: 'Historique',
-                                        type: KabaButtonType.outline,
-                                        onPressed: () {
-                                          context.push('/transaction-history');
-                                        },
-                                      ),
-                                    ),
-                                  ],
+                                const SizedBox(height: 3),
+                                Text(
+                                  'Bonjour, Koffi 👋',
+                                  style: AppTextStyles.greetName,
                                 ),
                               ],
                             ),
-                          )
-                          .animate()
-                          .fadeIn(delay: 200.ms)
-                          .slideY(begin: 0.1, end: 0),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Services',
-                        style: AppTextStyles.h3,
-                      ).animate().fadeIn(delay: 300.ms),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        height: 100,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          children: [
-                            _CategoryItem(
-                              icon: Icons.restaurant_menu_rounded,
-                              label: 'Cantines',
-                            ),
-                            _CategoryItem(
-                              icon: Icons.help_outline_rounded,
-                              label: 'Aide',
-                            ),
-                            _CategoryItem(
-                              icon: Icons.refresh_rounded,
-                              label: 'Recharger',
-                            ),
-                            _CategoryItem(
-                              icon: Icons.view_agenda_rounded,
-                              label: 'Tout voir',
-                            ),
-                          ],
-                        ),
-                      ).animate().fadeIn(delay: 400.ms),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Cantines populaires', style: AppTextStyles.h3),
-                          TextButton(
-                            onPressed: () => context.push('/canteen-list'),
-                            child: Text(
-                              'Voir plus',
-                              style: AppTextStyles.bodySmall.copyWith(
-                                color: AppColors.accent,
-                                fontWeight: FontWeight.bold,
+                          ).animate().fadeIn().slideX(begin: -0.05, end: 0),
+                          const SizedBox(width: 12),
+                          Row(
+                            children: [
+                              _buildIconButton(
+                                icon: Icons.search_rounded,
+                                onTap: () {},
                               ),
-                            ),
+                              const SizedBox(width: 9),
+                              _buildIconButton(
+                                icon: Icons.notifications_outlined,
+                                onTap: () => context.push('/notifications'),
+                                hasBadge: true,
+                              ),
+                            ],
+                          ).animate().fadeIn().slideX(begin: 0.05, end: 0),
+                        ],
+                      ),
+                      const SizedBox(height: 22),
+                      // Balance label
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.visibility_outlined,
+                            size: 14,
+                            color: AppColors.white.withValues(alpha: 0.8),
+                          ),
+                          const SizedBox(width: 7),
+                          Text(
+                            'Solde tickets',
+                            style: AppTextStyles.balanceLabel,
                           ),
                         ],
-                      ).animate().fadeIn(delay: 500.ms),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        height: 220,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: 3,
-                          itemBuilder: (context, index) {
-                            return Container(
-                                  width: 280,
-                                  margin: const EdgeInsets.only(right: 16),
-                                  child: KabaCard(
-                                    padding: EdgeInsets.zero,
-                                    onTap: () =>
-                                        context.push('/canteen-detail'),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        SizedBox(
-                                          width: double.infinity,
-                                          height: 120,
-                                          child: ClipRRect(
-                                            borderRadius:
-                                                const BorderRadius.vertical(
-                                                  top: Radius.circular(20),
-                                                ),
-                                            child: Image.asset(
-                                              index % 3 == 0
-                                                  ? 'assets/images/onboarding1.webp'
-                                                  : index % 3 == 1
-                                                  ? 'assets/images/onboarding2.webp'
-                                                  : 'assets/images/onbording.webp',
-                                              fit: BoxFit.cover,
-                                              width: double.infinity,
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                    return Container(
-                                                      color:
-                                                          AppColors.greyLight,
-                                                      child: const Icon(
-                                                        Icons
-                                                            .restaurant_rounded,
-                                                        size: 40,
-                                                        color:
-                                                            AppColors.primary,
-                                                      ),
-                                                    );
-                                                  },
-                                            ),
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.all(12.0),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceBetween,
-                                                children: [
-                                                  Text(
-                                                    'Cantine Centrale',
-                                                    style: AppTextStyles.h3,
-                                                  ),
-                                                  Container(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 6,
-                                                          vertical: 2,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      color: AppColors.success
-                                                          .withValues(
-                                                            alpha: 0.1,
-                                                          ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            6,
-                                                          ),
-                                                    ),
-                                                    child: Text(
-                                                      'Ouvert',
-                                                      style: AppTextStyles
-                                                          .labelMedium
-                                                          .copyWith(
-                                                            color: AppColors
-                                                                .success,
-                                                            fontSize: 10,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Row(
-                                                children: [
-                                                  const Icon(
-                                                    AppIcons.star,
-                                                    size: 12,
-                                                    color: AppColors.warning,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    '4.8 (120 avis)',
-                                                    style:
-                                                        AppTextStyles.bodySmall,
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  const Icon(
-                                                    Icons.access_time_rounded,
-                                                    size: 12,
-                                                    color: AppColors.grey,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    '15-20 min',
-                                                    style:
-                                                        AppTextStyles.bodySmall,
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                                .animate()
-                                .fadeIn(delay: (600 + (index * 100)).ms)
-                                .slideX(begin: 0.1, end: 0);
-                          },
-                        ),
+                      ).animate().fadeIn(delay: 100.ms),
+                      const SizedBox(height: 8),
+                      // Balance amount
+                      Text(
+                            '$_balance tickets',
+                            style: AppTextStyles.balanceAmount,
+                          )
+                          .animate()
+                          .fadeIn(delay: 150.ms)
+                          .slideY(begin: 0.1, end: 0),
+                      const SizedBox(height: 18),
+                      // Balance actions
+                      Row(
+                        children: [
+                          Expanded(
+                            child:
+                                _buildPillButton(
+                                      icon: Icons.add_rounded,
+                                      label: 'Recharger',
+                                      isPrimary: true,
+                                      onTap: () =>
+                                          context.push('/recharge-wallet'),
+                                    )
+                                    .animate()
+                                    .fadeIn(delay: 200.ms)
+                                    .slideY(begin: 0.1, end: 0),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child:
+                                _buildPillButton(
+                                      icon: Icons.refresh_rounded,
+                                      label: 'Historique',
+                                      isPrimary: false,
+                                      onTap: () =>
+                                          context.push('/transaction-history'),
+                                    )
+                                    .animate()
+                                    .fadeIn(delay: 250.ms)
+                                    .slideY(begin: 0.1, end: 0),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ),
+                ],
               ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24.0,
-                    vertical: 8.0,
+            ),
+            // Card Body
+            Expanded(
+              child: Transform.translate(
+                offset: const Offset(0, -18),
+                child: Container(
+                  width: double.infinity,
+                  margin: EdgeInsets.zero,
+                  decoration: BoxDecoration(
+                    color: AppColors.cardDark,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                    border: Border(top: BorderSide(color: AppColors.line)),
                   ),
-                  child: KabaCard(
-                    color: AppColors.surfaceSecondary(context),
-                    padding: const EdgeInsets.all(14),
-                    onTap: () => context.push('/ambassador-presentation'),
-                    child: Row(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color:
-                                Theme.of(context).brightness == Brightness.light
-                                ? AppColors.white
-                                : AppColors.surfaceDark,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.star_rounded,
-                            color: AppColors.accent,
-                            size: 24,
-                          ),
+                        // Quick Actions title
+                        Text(
+                          'Accès rapide',
+                          style: AppTextStyles.sectionTitle,
+                        ).animate().fadeIn(delay: 300.ms),
+                        const SizedBox(height: 14),
+                        // Quick Actions Grid
+                        GridView.count(
+                          crossAxisCount: 4,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          mainAxisSpacing: 18,
+                          children: List.generate(_quickActions.length, (index) {
+                            final action = _quickActions[index];
+                            return _QuickItem(
+                                  icon: action['icon'] as IconData,
+                                  label: action['label'] as String,
+                                  onTap: () {
+                                    final route = action['route'] as String?;
+                                    if (route != null) {
+                                      context.push(route);
+                                    }
+                                  },
+                                )
+                                .animate()
+                                .fadeIn(delay: (350 + index * 40).ms)
+                                .slideY(begin: 0.1, end: 0);
+                          }),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Devenez Ambassadeur',
-                                style: AppTextStyles.h3,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Gagnez des commissions sur chaque commande',
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color:
-                                      Theme.of(context).brightness ==
-                                          Brightness.light
-                                      ? AppColors.greyDark
-                                      : AppColors.textSecondaryDark,
+                        const SizedBox(height: 24),
+                        // Promo banner
+                        _buildPromoBanner()
+                            .animate()
+                            .fadeIn(delay: 700.ms)
+                            .slideY(begin: 0.05, end: 0),
+                        const SizedBox(height: 24),
+                        // Canteens section title
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Cantines · UCAO',
+                              style: AppTextStyles.sectionTitle,
+                            ),
+                            GestureDetector(
+                              onTap: () => context.push('/canteen-list'),
+                              child: Text(
+                                'Voir tout',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.accent,
                                 ),
                               ),
-                            ],
+                            ),
+                          ],
+                        ).animate().fadeIn(delay: 750.ms),
+                        const SizedBox(height: 14),
+                        // Canteens horizontal scroll
+                        SizedBox(
+                          height: 140,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _canteens.length,
+                            itemBuilder: (context, index) {
+                              final canteen = _canteens[index];
+                              return Padding(
+                                padding: EdgeInsets.only(
+                                  right: index == _canteens.length - 1 ? 0 : 11,
+                                ),
+                                child: _CanteenCard(
+                                  name: canteen['name']!,
+                                  onTap: () => context.push('/canteen-detail'),
+                                ),
+                              )
+                                  .animate()
+                                  .fadeIn(delay: (800 + index * 80).ms)
+                                  .slideX(begin: 0.1, end: 0);
+                            },
                           ),
-                        ),
-                        Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          color: AppColors.textPrimary(context),
-                          size: 18,
                         ),
                       ],
                     ),
-                  ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.1, end: 0),
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIconButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    bool hasBadge = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: AppColors.white.withValues(alpha: 0.08),
+          border: Border.all(color: AppColors.line),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(icon, color: AppColors.white, size: 16),
+            if (hasBadge)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.accent,
+                    border: Border.all(color: AppColors.primary, width: 1.5),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPillButton({
+    required IconData icon,
+    required String label,
+    required bool isPrimary,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 42,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(11),
+          color: isPrimary
+              ? AppColors.accent
+              : AppColors.white.withValues(alpha: 0.08),
+          border: isPrimary ? null : Border.all(color: AppColors.line),
+          boxShadow: isPrimary
+              ? [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.45),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                    spreadRadius: -4,
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 13, color: AppColors.white, weight: 2.5),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPromoBanner() {
+    return GestureDetector(
+      onTap: () => context.push('/ambassador-presentation'),
+      child: Container(
+        height: 78,
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(13),
+          color: AppColors.accent.withValues(alpha: 0.10),
+          border: Border.all(color: AppColors.accent.withValues(alpha: 0.28)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.person_add_alt_outlined,
+              color: AppColors.accent,
+              size: 18,
+            ),
+            const SizedBox(width: 9),
+            Flexible(
+              child: Text(
+                'Devenir ambassadeur kabakaba',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.accent,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _CategoryItem extends StatelessWidget {
+class _QuickItem extends StatelessWidget {
   final IconData icon;
   final String label;
+  final VoidCallback onTap;
 
-  const _CategoryItem({required this.icon, required this.label});
+  const _QuickItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 80,
-      margin: const EdgeInsets.only(right: 12),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: AppShadows.soft,
+              borderRadius: BorderRadius.circular(13),
+              color: AppColors.field,
+              border: Border.all(color: AppColors.line),
             ),
-            child: Icon(
-              icon,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? AppColors.white
-                  : AppColors.primary,
-            ),
+            child: Icon(icon, color: AppColors.accent, size: 18),
           ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: AppTextStyles.caption.copyWith(
-              color: AppColors.textPrimary(context),
-              fontWeight: FontWeight.w500,
+          const SizedBox(height: 7),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.white.withValues(alpha: 0.65),
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CanteenCard extends StatelessWidget {
+  final String name;
+  final VoidCallback onTap;
+
+  const _CanteenCard({required this.name, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 128,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(13),
+          color: AppColors.field,
+          border: Border.all(color: AppColors.line),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppColors.white.withValues(alpha: 0.06),
+                border: Border(bottom: BorderSide(color: AppColors.line)),
+              ),
+              child: Icon(
+                Icons.restaurant_outlined,
+                color: AppColors.mutedSoft,
+                size: 28,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.white,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 5),
+                  Container(
+                    height: 5,
+                    width: 65,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      color: AppColors.white.withValues(alpha: 0.12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

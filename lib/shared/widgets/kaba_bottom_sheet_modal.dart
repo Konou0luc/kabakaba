@@ -37,6 +37,7 @@ class KabaBottomSheetModal extends StatelessWidget {
       isDismissible: isDismissible,
       enableDrag: enableDrag,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (context) => KabaBottomSheetModal(
         height: height,
         isDismissible: isDismissible,
@@ -51,79 +52,92 @@ class KabaBottomSheetModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bottomInsets = MediaQuery.of(context).viewInsets.bottom;
 
-    Widget content = Container(
-      height: height ?? 520,
-      decoration: BoxDecoration(
-        color: isDarkMode ? AppColors.surfaceDark : AppColors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Drag indicator (always show)
-          Container(
-            margin: const EdgeInsets.only(top: 12, bottom: 8),
-            width: 48,
-            height: 4,
-            decoration: BoxDecoration(
-              color: isDarkMode
-                  ? AppColors.greyDark.withValues(alpha: 0.3)
-                  : AppColors.greyLight,
-              borderRadius: BorderRadius.circular(2),
+    Widget buildContent(ScrollController? scrollController) {
+      return Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        decoration: BoxDecoration(
+          color: isDarkMode ? AppColors.surfaceDark : AppColors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
             ),
-          ),
-          // Title bar
-          if (title != null || trailing != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  if (title != null)
-                    Text(
-                      title!,
-                      style: AppTextStyles.h3.copyWith(
-                        color: isDarkMode
-                            ? AppColors.white
-                            : AppColors.textPrimaryLight,
-                      ),
-                    ),
-                  if (trailing != null) trailing!,
-                ],
+          ],
+        ),
+        child: ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 24,
+          ).copyWith(bottom: bottomInsets),
+          physics: const BouncingScrollPhysics(),
+          shrinkWrap: true,
+          children: [
+            // Drag indicator (always show)
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDarkMode
+                      ? AppColors.greyDark.withValues(alpha: 0.3)
+                      : AppColors.greyLight,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          // Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              physics: const BouncingScrollPhysics(),
-              child: child,
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (isStatic) {
-      return content;
+            // Title bar
+            if (title != null || trailing != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    if (title != null)
+                      Text(
+                        title!,
+                        style: AppTextStyles.h3.copyWith(
+                          color: isDarkMode
+                              ? AppColors.white
+                              : AppColors.textPrimaryLight,
+                        ),
+                      ),
+                    if (trailing != null) trailing!,
+                  ],
+                ),
+              ),
+            // Content
+            child,
+          ],
+        ),
+      );
     }
 
-    return DraggableScrollableSheet(
-      initialChildSize: height != null
-          ? (height! / MediaQuery.of(context).size.height)
-          : 0.5,
-      minChildSize: 0.3,
-      maxChildSize: 0.9,
-      builder: (context, scrollController) {
-        return content;
-      },
+    if (isStatic) {
+      return buildContent(null);
+    }
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: bottomInsets),
+      child: DraggableScrollableSheet(
+        initialChildSize: height != null
+            ? (height! / MediaQuery.of(context).size.height)
+            : 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) {
+          return buildContent(scrollController);
+        },
+      ),
     );
   }
 }

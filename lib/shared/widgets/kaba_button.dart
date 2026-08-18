@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_text_styles.dart';
 
 enum KabaButtonType { primary, secondary, outline, ghost }
 
@@ -11,6 +11,7 @@ class KabaButton extends StatelessWidget {
   final bool isLoading;
   final IconData? icon;
   final bool fullWidth;
+  final Widget? trailingIcon;
 
   const KabaButton({
     super.key,
@@ -20,6 +21,7 @@ class KabaButton extends StatelessWidget {
     this.isLoading = false,
     this.icon,
     this.fullWidth = true,
+    this.trailingIcon,
   });
 
   @override
@@ -39,17 +41,22 @@ class KabaButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 20),
+                Icon(icon, size: 18),
                 const SizedBox(width: 8),
               ],
               Flexible(
                 child: FittedBox(fit: BoxFit.scaleDown, child: Text(text)),
               ),
+              if (trailingIcon != null) ...[
+                const SizedBox(width: 8),
+                trailingIcon!,
+              ],
             ],
           );
 
     return SizedBox(
       width: fullWidth ? double.infinity : null,
+      height: 50,
       child: _buildButton(child, isDark),
     );
   }
@@ -57,13 +64,32 @@ class KabaButton extends StatelessWidget {
   Widget _buildButton(Widget child, bool isDark) {
     switch (type) {
       case KabaButtonType.primary:
-        return ElevatedButton(
-          onPressed: isLoading ? null : onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.accent,
-            foregroundColor: AppColors.white,
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(13),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withValues(alpha: 0.45),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+                spreadRadius: -4,
+              ),
+            ],
           ),
-          child: child,
+          child: ElevatedButton(
+            onPressed: isLoading ? null : onPressed,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: AppColors.white,
+              textStyle: AppTextStyles.buttonPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(13),
+              ),
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+            ),
+            child: child,
+          ),
         );
       case KabaButtonType.secondary:
         return ElevatedButton(
@@ -71,6 +97,12 @@ class KabaButton extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: AppColors.white,
+            textStyle: AppTextStyles.buttonPrimary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(13),
+            ),
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
           ),
           child: child,
         );
@@ -78,11 +110,13 @@ class KabaButton extends StatelessWidget {
         return OutlinedButton(
           onPressed: isLoading ? null : onPressed,
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.accent),
-            foregroundColor: AppColors.accent,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            side: BorderSide(color: AppColors.line),
+            foregroundColor: AppColors.white,
+            backgroundColor: AppColors.field,
+            textStyle: AppTextStyles.buttonPrimary,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             shape: RoundedRectangleBorder(
-              borderRadius: AppRadius.largeBorderRadius,
+              borderRadius: BorderRadius.circular(13),
             ),
           ),
           child: child,
@@ -92,9 +126,10 @@ class KabaButton extends StatelessWidget {
           onPressed: isLoading ? null : onPressed,
           style: TextButton.styleFrom(
             foregroundColor: isDark ? AppColors.white : AppColors.primary,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            textStyle: AppTextStyles.buttonPrimary,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             shape: RoundedRectangleBorder(
-              borderRadius: AppRadius.largeBorderRadius,
+              borderRadius: BorderRadius.circular(13),
             ),
           ),
           child: child,

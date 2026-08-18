@@ -19,17 +19,10 @@ class AmbassadorDashboardPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: AppColors.textPrimary(context),
-          ),
-          onPressed: () => context.pop(),
-        ),
         title: const Text('Programme Ambassadeur'),
+        elevation: 0,
         centerTitle: true,
+        backgroundColor: Colors.transparent,
       ),
       extendBodyBehindAppBar: true,
       body: KabaBackground(

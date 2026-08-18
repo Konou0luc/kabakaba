@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -13,18 +12,12 @@ class CommissionHistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: AppColors.textPrimary(context),
-          ),
-          onPressed: () => context.pop(),
-        ),
         title: const Text('Historique des commissions'),
+        elevation: 0,
         centerTitle: true,
+        backgroundColor: Colors.transparent,
       ),
       body: KabaBackground(
         child: SafeArea(

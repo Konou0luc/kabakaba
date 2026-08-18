@@ -1,6 +1,8 @@
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/auth/data/auth_provider.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/onboarding_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
@@ -8,6 +10,7 @@ import '../../features/auth/presentation/pages/identity_page.dart';
 import '../../features/auth/presentation/pages/referral_page.dart';
 import '../../features/auth/presentation/pages/account_confirmation_page.dart';
 import '../../features/campus/presentation/pages/campus_selection_page.dart';
+import '../../features/campus/presentation/pages/campus_page.dart';
 import '../../features/vendors/presentation/pages/home_page.dart';
 import '../../features/vendors/presentation/pages/canteen_detail_page.dart';
 import '../../features/vendors/presentation/pages/canteen_list_page.dart';
@@ -29,6 +32,7 @@ import '../../features/payments/presentation/pages/payment_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/settings/presentation/pages/notifications_page.dart';
 import '../../features/settings/presentation/pages/about_page.dart';
+import '../../features/settings/presentation/pages/help_support_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/ambassador/presentation/pages/ambassador_dashboard_page.dart';
@@ -41,10 +45,41 @@ import 'main_navigation_wrapper.dart';
 
 part 'app_router.g.dart';
 
+const _publicRoutes = [
+  '/',
+  '/onboarding',
+  '/auth',
+  '/auth/identity',
+  '/auth/campus-selection',
+  '/auth/referral',
+  '/auth/account-confirmation',
+];
+
+bool _isPublicRoute(String path) {
+  return _publicRoutes.any(
+    (route) => path == route || path.startsWith('$route/'),
+  );
+}
+
 @riverpod
 GoRouter router(RouterRef ref) {
   return GoRouter(
     initialLocation: '/',
+    redirect: (context, state) {
+      final authState = ref.read(authProvider);
+      final isLoggedIn = authState == AuthState.authenticated;
+      final isGoingToPublic = _isPublicRoute(state.uri.path);
+
+      if (!isLoggedIn && !isGoingToPublic) {
+        return '/auth';
+      }
+
+      if (isLoggedIn && (state.uri.path == '/' || state.uri.path == '/auth')) {
+        return '/home';
+      }
+
+      return null;
+    },
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashPage()),
       GoRoute(
@@ -152,6 +187,11 @@ GoRouter router(RouterRef ref) {
         builder: (context, state) => const NotificationsPage(),
       ),
       GoRoute(path: '/about', builder: (context, state) => const AboutPage()),
+      GoRoute(
+        path: '/help-support',
+        builder: (context, state) => const HelpSupportPage(),
+      ),
+      GoRoute(path: '/campus', builder: (context, state) => const CampusPage()),
       GoRoute(
         path: '/ambassador-dashboard',
         builder: (context, state) => const AmbassadorDashboardPage(),
