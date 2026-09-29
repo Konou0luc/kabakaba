@@ -1,3 +1,5 @@
+import '../../core/network/json_reader.dart';
+
 enum UserRole { STUDENT, VENDOR, ADMIN, SUPER_ADMIN }
 
 UserRole userRoleFromJson(String value) =>
@@ -53,31 +55,49 @@ class UserModel {
     required this.notifyPromotions,
   });
 
+  String get displayFirstName {
+    final name = firstName?.trim();
+    if (name != null && name.isNotEmpty) return name;
+    return 'Étudiant';
+  }
+
+  String get displayFullName {
+    final first = firstName?.trim() ?? '';
+    final last = lastName?.trim() ?? '';
+    final full = '$first $last'.trim();
+    return full.isEmpty ? displayFirstName : full;
+  }
+
+  String get initials {
+    final first = firstName?.trim();
+    final last = lastName?.trim();
+    final a = (first != null && first.isNotEmpty) ? first[0] : '';
+    final b = (last != null && last.isNotEmpty) ? last[0] : '';
+    final value = '$a$b'.toUpperCase();
+    return value.isEmpty ? 'É' : value;
+  }
+
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] != null
-            ? DateTime.parse(json['deletedAt'] as String)
-            : null,
-        phone: json['phone'] as String?,
-        email: json['email'] as String?,
-        firstName: json['firstName'] as String?,
-        lastName: json['lastName'] as String?,
-        avatarUrl: json['avatarUrl'] as String?,
-        role: userRoleFromJson(json['role'] as String),
-        campusId: json['campusId'] as String?,
-        walletBalance: (json['walletBalance'] as num?)?.toInt() ?? 0,
-        escrowBalance: (json['escrowBalance'] as num?)?.toInt() ?? 0,
-        isSuspended: json['isSuspended'] as bool? ?? false,
-        suspensionUntil: json['suspensionUntil'] != null
-            ? DateTime.parse(json['suspensionUntil'] as String)
-            : null,
-        suspensionReason: json['suspensionReason'] as String?,
-        mustChangePassword: json['mustChangePassword'] as bool? ?? false,
-        notifyOrders: json['notifyOrders'] as bool? ?? true,
-        notifyAmbassador: json['notifyAmbassador'] as bool? ?? true,
-        notifyPromotions: json['notifyPromotions'] as bool? ?? false,
+        id: json.requireString('id'),
+        createdAt: json.dateTimeOrNow('createdAt'),
+        updatedAt: json.dateTimeOrNow('updatedAt'),
+        deletedAt: json.optionalDateTime('deletedAt'),
+        phone: json.optionalString('phone'),
+        email: json.optionalString('email'),
+        firstName: json.optionalString('firstName'),
+        lastName: json.optionalString('lastName'),
+        avatarUrl: json.optionalString('avatarUrl'),
+        role: userRoleFromJson(json.stringOr('role', 'STUDENT')),
+        campusId: json.optionalString('campusId'),
+        walletBalance: json.intOr('walletBalance', 0),
+        escrowBalance: json.intOr('escrowBalance', 0),
+        isSuspended: json.boolOr('isSuspended', false),
+        suspensionUntil: json.optionalDateTime('suspensionUntil'),
+        suspensionReason: json.optionalString('suspensionReason'),
+        mustChangePassword: json.boolOr('mustChangePassword', false),
+        notifyOrders: json.boolOr('notifyOrders', true),
+        notifyAmbassador: json.boolOr('notifyAmbassador', true),
+        notifyPromotions: json.boolOr('notifyPromotions', false),
       );
 
   Map<String, dynamic> toJson() => {

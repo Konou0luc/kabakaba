@@ -60,4 +60,38 @@ class AppColors {
       Theme.of(context).brightness == Brightness.light
       ? surfaceSecondaryLight
       : surfaceSecondaryDark;
+  static Color adaptiveBg(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+      ? indigoDark
+      : backgroundLight;
+
+  static Color adaptiveCard(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+      ? cardDark
+      : surfaceLight;
+
+  static Color adaptiveText(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+      ? white
+      : textPrimaryLight;
+
+  static Color adaptiveMuted(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+      ? muted
+      : textSecondaryLight;
+
+  static Color adaptiveLine(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+      ? line
+      : const Color(0x1A1B2A6B);
+
+  static Color adaptiveField(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+      ? field
+      : const Color(0xFFF0F3FA);
+
+  static Color adaptiveFieldFocus(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+      ? fieldFocus
+      : const Color(0xFFFFFFFF);
 }

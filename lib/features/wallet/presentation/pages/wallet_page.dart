@@ -1,78 +1,76 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/network/session_providers.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/ticket_format.dart';
+import '../../../../features/auth/data/auth_provider.dart';
+import '../../../../shared/models/api_models.dart';
+import '../../../../shared/widgets/kaba_premium.dart';
+import '../../../../shared/widgets/light_page_scaffold.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class WalletPage extends StatefulWidget {
+class WalletPage extends ConsumerStatefulWidget {
   const WalletPage({super.key});
 
   @override
-  State<WalletPage> createState() => _WalletPageState();
+  ConsumerState<WalletPage> createState() => _WalletPageState();
 }
 
-class _WalletPageState extends State<WalletPage> {
-  final List<Map<String, dynamic>> _transactions = [
-    {
-      'icon': Icons.add_circle_rounded,
-      'title': 'Rechargement',
-      'subtitle': 'Mobile Money',
-      'amount': '+5 000',
+class _WalletPageState extends ConsumerState<WalletPage> {
+  List<Map<String, dynamic>> get _displayTx {
+    final api = ref.watch(myTransactionsProvider).valueOrNull;
+    if (api == null) return const [];
+    return api.map(_mapTx).toList();
+  }
+
+  bool _isIncoming(TransactionModel tx) =>
+      tx.type == TransactionType.RECHARGE ||
+      tx.type == TransactionType.TRANSFER_RECEIVED ||
+      tx.type == TransactionType.ORDER_REFUND ||
+      tx.type == TransactionType.COMMISSION;
+
+  int _sumFor({required bool incoming}) {
+    final api = ref.watch(myTransactionsProvider).valueOrNull ?? const [];
+    return api
+        .where(
+          (tx) =>
+              tx.status == TransactionStatus.COMPLETED &&
+              _isIncoming(tx) == incoming,
+        )
+        .fold(0, (sum, tx) => sum + tx.amount);
+  }
+
+  Map<String, dynamic> _mapTx(TransactionModel tx) {
+    final incoming = _isIncoming(tx);
+    return {
+      'icon': incoming
+          ? Icons.add_circle_rounded
+          : Icons.restaurant_rounded,
+      'title': switch (tx.type) {
+        TransactionType.RECHARGE => 'Rechargement',
+        TransactionType.TRANSFER_SENT => 'Transfert envoyé',
+        TransactionType.TRANSFER_RECEIVED => 'Transfert reçu',
+        TransactionType.ORDER_PAYMENT => 'Commande',
+        TransactionType.ORDER_REFUND => 'Remboursement',
+        TransactionType.COMMISSION => 'Commission',
+        TransactionType.PAYOUT => 'Retrait',
+        TransactionType.ADJUSTMENT => 'Ajustement',
+      },
+      'subtitle': tx.reference ?? tx.status.name,
+      'amount': '${incoming ? '+' : '-'}${formatTickets(tx.amount)}',
       'unit': 'tickets',
-      'time': "Aujourd'hui, 14h30",
-      'isPositive': true,
-    },
-    {
-      'icon': Icons.restaurant_rounded,
-      'title': 'Commande Chez Mama Afi',
-      'subtitle': 'Plat attiéké + poulet',
-      'amount': '-1 500',
-      'unit': 'tickets',
-      'time': 'Hier, 12h15',
-      'isPositive': false,
-    },
-    {
-      'icon': Icons.send_rounded,
-      'title': 'Transfert à Yao',
-      'subtitle': '+228 91 23 45 67',
-      'amount': '-2 000',
-      'unit': 'tickets',
-      'time': 'Lun, 09h40',
-      'isPositive': false,
-    },
-    {
-      'icon': Icons.attach_money_rounded,
-      'title': 'Commission Ambassadeur',
-      'subtitle': '3 filleuls actifs',
-      'amount': '+750',
-      'unit': 'tickets',
-      'time': 'Dim, 18h00',
-      'isPositive': true,
-    },
-    {
-      'icon': Icons.restaurant_rounded,
-      'title': 'Commande Resto Campus 2',
-      'subtitle': 'Riz yassa + boisson',
-      'amount': '-2 200',
-      'unit': 'tickets',
-      'time': 'Sam, 13h20',
-      'isPositive': false,
-    },
-    {
-      'icon': Icons.add_circle_rounded,
-      'title': 'Rechargement',
-      'subtitle': 'Carte bancaire',
-      'amount': '+10 000',
-      'unit': 'tickets',
-      'time': 'Ven, 20h05',
-      'isPositive': true,
-    },
-  ];
+      'time':
+          '${tx.createdAt.day}/${tx.createdAt.month} · ${tx.createdAt.hour.toString().padLeft(2, '0')}h${tx.createdAt.minute.toString().padLeft(2, '0')}',
+      'isPositive': incoming,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.indigoDark,
+      backgroundColor: AppColors.adaptiveBg(context),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -86,45 +84,9 @@ class _WalletPageState extends State<WalletPage> {
   }
 
   Widget _buildHero() {
-    return Container(
-      width: double.infinity,
+    return KabaIndigoHero(
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 34),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary, AppColors.indigoDark],
-          transform: const GradientRotation(2.705),
-        ),
-      ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            top: -60,
-            right: -50,
-            child: Container(
-              width: 170,
-              height: 170,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.accent.withValues(alpha: 0.16),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -80,
-            left: -50,
-            child: Container(
-              width: 160,
-              height: 160,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.white.withValues(alpha: 0.04),
-              ),
-            ),
-          ),
-          Column(
+      child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -144,7 +106,7 @@ class _WalletPageState extends State<WalletPage> {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          'Bonjour, Koffi 👋',
+                          'Bonjour, ${ref.watch(meProvider).valueOrNull?.displayFirstName ?? ref.watch(currentUserProvider)?.displayFirstName ?? 'Étudiant'}',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
@@ -154,19 +116,9 @@ class _WalletPageState extends State<WalletPage> {
                       ],
                     ),
                   ),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppColors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.line, width: 1),
-                    ),
-                    child: const Icon(
-                      Icons.qr_code_scanner_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
+                  KabaHeroIconButton(
+                    icon: Icons.history_rounded,
+                    onTap: () => context.push('/transaction-history'),
                   ),
                 ],
               ),
@@ -193,7 +145,7 @@ class _WalletPageState extends State<WalletPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                '5 000 tickets',
+                '${formatTickets(ref.watch(meProvider).valueOrNull?.walletBalance ?? ref.watch(currentUserProvider)?.walletBalance ?? 0)} tickets',
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 30,
                   fontWeight: FontWeight.w800,
@@ -234,8 +186,6 @@ class _WalletPageState extends State<WalletPage> {
               ),
             ],
           ),
-        ],
-      ),
     );
   }
 
@@ -294,69 +244,55 @@ class _WalletPageState extends State<WalletPage> {
   }
 
   Widget _buildBody() {
-    return Transform.translate(
-      offset: const Offset(0, -18),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: AppColors.cardDark,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border(top: BorderSide(color: AppColors.line, width: 1)),
-        ),
-        margin: EdgeInsets.zero,
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                  child: Column(
-                    children: [
-                      _buildQuickStats().animate().fadeIn().slideY(
-                        begin: 0.1,
-                        end: 0,
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
+    final txs = _displayTx;
+    return KabaOverlapSheet(
+      child: RefreshIndicator(
+        color: AppColors.accent,
+        onRefresh: () => refreshStudentSession(ref),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                child: Column(
+                  children: [
+                    _buildQuickStats().animate().fadeIn().slideY(
+                      begin: 0.1,
+                      end: 0,
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
               ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Dernières transactions',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.white,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => context.push('/transaction-history'),
-                        child: Text(
-                          'Voir tout',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.accent,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: KabaSectionHeader(
+                  kicker: 'Mouvements',
+                  title: 'Dernières transactions',
+                  action: 'Voir tout',
+                  onAction: () => context.push('/transaction-history'),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 14)),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 14)),
+            if (txs.isEmpty)
+              const SliverToBoxAdapter(
+                child: KabaEmptyState(
+                  icon: Icons.receipt_long_outlined,
+                  title: 'Aucun mouvement',
+                  subtitle:
+                      'Tes recharges et paiements de commandes apparaîtront ici.',
+                ),
+              )
+            else
               SliverList.separated(
-                itemCount: _transactions.length,
+                itemCount: txs.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
-                  final tx = _transactions[index];
+                  final tx = txs[index];
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: _buildTxItem(
@@ -365,9 +301,8 @@ class _WalletPageState extends State<WalletPage> {
                   );
                 },
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 100)),
-            ],
-          ),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
         ),
       ),
     );
@@ -379,7 +314,7 @@ class _WalletPageState extends State<WalletPage> {
         Expanded(
           child: _buildStatCard(
             title: 'Entrées',
-            value: '+15 750',
+            value: '+${formatTickets(_sumFor(incoming: true))}',
             icon: Icons.arrow_downward_rounded,
             iconColor: AppColors.success,
           ),
@@ -388,7 +323,7 @@ class _WalletPageState extends State<WalletPage> {
         Expanded(
           child: _buildStatCard(
             title: 'Sorties',
-            value: '-5 700',
+            value: '-${formatTickets(_sumFor(incoming: false))}',
             icon: Icons.arrow_upward_rounded,
             iconColor: AppColors.error,
           ),
@@ -406,9 +341,9 @@ class _WalletPageState extends State<WalletPage> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.field,
+        color: LightPageColors.indigoLight,
         borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: AppColors.line, width: 1),
+        border: Border.all(color: LightPageColors.border, width: 1),
       ),
       child: Row(
         children: [
@@ -431,7 +366,7 @@ class _WalletPageState extends State<WalletPage> {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.muted,
+                    color: LightPageColors.muted,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -440,7 +375,7 @@ class _WalletPageState extends State<WalletPage> {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.white,
+                    color: LightPageColors.text,
                   ),
                 ),
               ],
@@ -455,9 +390,9 @@ class _WalletPageState extends State<WalletPage> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.field,
+        color: LightPageColors.indigoLight,
         borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: AppColors.line, width: 1),
+        border: Border.all(color: LightPageColors.border, width: 1),
       ),
       child: Row(
         children: [
@@ -485,7 +420,7 @@ class _WalletPageState extends State<WalletPage> {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.white,
+                    color: LightPageColors.text,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -493,7 +428,7 @@ class _WalletPageState extends State<WalletPage> {
                   tx['subtitle'] as String,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 11,
-                    color: AppColors.muted,
+                    color: LightPageColors.muted,
                   ),
                 ),
               ],
@@ -507,7 +442,9 @@ class _WalletPageState extends State<WalletPage> {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color: tx['isPositive'] ? AppColors.success : AppColors.white,
+                  color: tx['isPositive']
+                      ? AppColors.success
+                      : LightPageColors.text,
                 ),
               ),
               const SizedBox(height: 3),

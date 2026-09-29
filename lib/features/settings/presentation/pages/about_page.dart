@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/light_page_scaffold.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -9,12 +10,6 @@ class AboutPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return LightPageScaffold(
       title: 'À propos',
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: LightIconButton(icon: Icons.share_outlined, onTap: () {}),
-        ),
-      ],
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
@@ -51,25 +46,16 @@ class AboutPage extends StatelessWidget {
                 icon: Icons.email_outlined,
                 label: 'Email',
                 value: 'hello@kabakaba.app',
-                color: LightPageColors.indigo,
-              ),
-              _contactRow(
-                icon: Icons.phone_outlined,
-                label: 'Téléphone',
-                value: '+228 90 00 00 00',
-                color: LightPageColors.green,
               ),
               _contactRow(
                 icon: Icons.language_outlined,
                 label: 'Site web',
                 value: 'www.kabakaba.app',
-                color: LightPageColors.orange,
               ),
               _contactRow(
                 icon: Icons.place_outlined,
                 label: 'Siège',
                 value: 'Lomé, Togo',
-                color: LightPageColors.red,
               ),
             ],
           ),
@@ -134,22 +120,22 @@ class AboutPage extends StatelessWidget {
               LightNavRow(
                 icon: Icons.description_outlined,
                 title: 'Conditions d\'utilisation',
-                onTap: () {},
+                onTap: () => context.push('/legal/terms'),
               ),
               LightNavRow(
                 icon: Icons.lock_outline_rounded,
                 title: 'Politique de confidentialité',
-                onTap: () {},
+                onTap: () => context.push('/legal/privacy'),
               ),
               LightNavRow(
                 icon: Icons.receipt_long_outlined,
                 title: 'Mentions légales',
-                onTap: () {},
+                onTap: () => context.push('/legal/mentions'),
               ),
               LightNavRow(
                 icon: Icons.cookie_outlined,
                 title: 'Gestion des cookies',
-                onTap: () {},
+                onTap: () => context.push('/legal/cookies'),
               ),
               LightNavRow(
                 icon: Icons.verified_outlined,
@@ -157,15 +143,6 @@ class AboutPage extends StatelessWidget {
                 onTap: () => showLicensePage(context: context),
               ),
             ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: LightButton(
-              text: 'Noter KabaKaba sur le Store',
-              icon: Icons.star_rate_rounded,
-              onPressed: () {},
-            ),
           ),
           const SizedBox(height: 18),
           Center(
@@ -276,15 +253,15 @@ class AboutPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               LightBadge(
-                text: '⭐ 4.9 sur 5',
-                bgColor: LightPageColors.warningLight,
-                color: LightPageColors.warning,
+                text: 'Campus · Togo',
+                bgColor: LightPageColors.indigoLight,
+                color: LightPageColors.indigo,
               ),
               const SizedBox(width: 8),
               LightBadge(
-                text: '👥 25 000+ utilisateurs',
-                bgColor: LightPageColors.greenLight,
-                color: LightPageColors.green,
+                text: 'Flooz / Mixx',
+                bgColor: LightPageColors.orangeLight,
+                color: LightPageColors.orange,
               ),
             ],
           ),
@@ -398,9 +375,7 @@ class AboutPage extends StatelessWidget {
     required IconData icon,
     required String label,
     required String value,
-    required Color color,
   }) {
-    final bg = color.withValues(alpha: 0.1);
     return LightNavRow(icon: icon, title: label, subtitle: value);
   }
 

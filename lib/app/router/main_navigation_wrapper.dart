@@ -1,91 +1,265 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../core/network/session_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
-import '../../core/theme/app_radius.dart';
+import '../../core/utils/kaba_snack.dart';
+import '../../features/cart/data/cart_provider.dart';
+import '../../shared/models/api_models.dart';
+import '../../shared/widgets/light_page_scaffold.dart';
 
-class MainNavigationWrapper extends StatelessWidget {
+class MainNavigationWrapper extends ConsumerStatefulWidget {
   final Widget child;
 
   const MainNavigationWrapper({super.key, required this.child});
 
   @override
+  ConsumerState<MainNavigationWrapper> createState() =>
+      _MainNavigationWrapperState();
+}
+
+class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper> {
+  Timer? _poll;
+  Map<String, OrderStatus> _lastStatuses = {};
+  int _lastUnread = 0;
+  bool _booted = false;
+
+  int _selectedIndex(String path) {
+    if (path.startsWith('/order-history') || path.startsWith('/order-detail')) {
+      return 1;
+    }
+    if (path == '/cart' ||
+        path.startsWith('/packaging') ||
+        path.startsWith('/payment')) {
+      return 2;
+    }
+    if (path.startsWith('/wallet') ||
+        path.startsWith('/recharge') ||
+        path.startsWith('/send-money') ||
+        path.startsWith('/transaction-history')) {
+      return 3;
+    }
+    if (path.startsWith('/profile') ||
+        path.startsWith('/settings') ||
+        path.startsWith('/edit-profile') ||
+        path.startsWith('/notifications') ||
+        path.startsWith('/help-support') ||
+        path.startsWith('/about') ||
+        path.startsWith('/legal') ||
+        path.startsWith('/campus') ||
+        path.startsWith('/ambassador')) {
+      return 4;
+    }
+    return 0;
+  }
+
+  bool _hideTabBar(String path) {
+    return path.startsWith('/canteen-detail') ||
+        path.startsWith('/menu-detail') ||
+        path.startsWith('/payment') ||
+        path.startsWith('/packaging') ||
+        path.startsWith('/recharge') ||
+        path.startsWith('/send-money') ||
+        path.startsWith('/order-detail');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _poll = Timer.periodic(const Duration(seconds: 20), (_) => _tick());
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _tick() async {
+    if (!mounted) return;
+    try {
+      await refreshStudentSession(ref);
+      final orders = ref.read(myOrdersProvider).valueOrNull ?? const [];
+      final notifs =
+          ref.read(myNotificationsProvider).valueOrNull ?? const [];
+      final unread = notifs.where((n) => !n.isRead).length;
+      if (_booted) {
+        for (final order in orders) {
+          final previous = _lastStatuses[order.id];
+          if (previous != null &&
+              previous != OrderStatus.READY &&
+              order.status == OrderStatus.READY) {
+            if (mounted) {
+              showKabaSnack(
+                context,
+                'Ta commande chez ${order.vendorName} est prête',
+              );
+            }
+          }
+        }
+        if (unread > _lastUnread && mounted) {
+          showKabaSnack(context, 'Nouvelle notification');
+        }
+      }
+      _lastStatuses = {
+        for (final order in orders) order.id: order.status,
+      };
+      _lastUnread = unread;
+      _booted = true;
+    } catch (_) {}
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final location = GoRouterState.of(context).uri.path;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final path = GoRouterState.of(context).uri.path;
+    final selected = _selectedIndex(path);
+    final hideBar = _hideTabBar(path);
+    final cartCount = ref.watch(cartProvider).itemCount;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      extendBody: true,
-      body: Padding(
-        padding: const EdgeInsets.only(bottom: 94),
-        child: child,
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          child: Container(
-            height: 72,
-            clipBehavior: Clip.hardEdge,
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.surfaceDark.withValues(alpha: 0.96)
-                  : AppColors.white,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: isDark
-                    ? AppColors.white.withValues(alpha: 0.08)
-                    : AppColors.greyLight.withValues(alpha: 0.55),
-                width: 1,
+      backgroundColor: AppColors.adaptiveBg(context),
+      body: widget.child,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: hideBar
+          ? null
+          : _CartFab(
+              count: cartCount,
+              selected: selected == 2,
+              onTap: () => context.go('/cart'),
+            ),
+      bottomNavigationBar: hideBar
+          ? null
+          : BottomAppBar(
+              color: LightPageColors.white,
+              elevation: 12,
+              shadowColor: Colors.black.withValues(alpha: 0.45),
+              surfaceTintColor: Colors.transparent,
+              padding: EdgeInsets.zero,
+              height: 64 + bottomInset,
+              notchMargin: 7,
+              shape: const CircularNotchedRectangle(),
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: bottomInset),
+                child: SizedBox(
+                  height: 64,
+                  child: Row(
+                    children: [
+                      _NavItem(
+                        icon: AppIcons.home,
+                        label: 'Accueil',
+                        isSelected: selected == 0,
+                        onTap: () => context.go('/home'),
+                      ),
+                      _NavItem(
+                        icon: AppIcons.orders,
+                        label: 'Commandes',
+                        isSelected: selected == 1,
+                        onTap: () => context.go('/order-history'),
+                      ),
+                      const SizedBox(width: 72),
+                      _NavItem(
+                        icon: AppIcons.wallet,
+                        label: 'Portefeuille',
+                        isSelected: selected == 3,
+                        onTap: () => context.go('/wallet'),
+                      ),
+                      _NavItem(
+                        icon: AppIcons.profile,
+                        label: 'Profil',
+                        isSelected: selected == 4,
+                        onTap: () => context.go('/profile'),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.black.withValues(
-                    alpha: isDark ? 0.22 : 0.08,
-                  ),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: _NavItem(
-                    icon: AppIcons.home,
-                    label: 'Accueil',
-                    isSelected: location == '/home',
-                    onTap: () => context.go('/home'),
-                  ),
+    );
+  }
+}
+
+class _CartFab extends StatelessWidget {
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CartFab({
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 58,
+        height: 58,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFFF9A62), Color(0xFFF07840)],
                 ),
-                Expanded(
-                  child: _NavItem(
-                    icon: AppIcons.cart,
-                    label: 'Panier',
-                    isSelected: location == '/cart',
-                    onTap: () => context.go('/cart'),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.5),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
                   ),
-                ),
-                Expanded(
-                  child: _NavItem(
-                    icon: AppIcons.wallet,
-                    label: 'Portefeuille',
-                    isSelected: location == '/wallet',
-                    onTap: () => context.go('/wallet'),
-                  ),
-                ),
-                Expanded(
-                  child: _NavItem(
-                    icon: AppIcons.profile,
-                    label: 'Profil',
-                    isSelected: location == '/profile',
-                    onTap: () => context.go('/profile'),
-                  ),
-                ),
-              ],
+                ],
+              ),
+              child: Icon(
+                Icons.shopping_bag_rounded,
+                color: Colors.white,
+                size: selected ? 26 : 24,
+              ),
             ),
-          ),
+            if (count > 0)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(9),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    count > 9 ? '9+' : '$count',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.accent,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -107,59 +281,35 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isSelected
+        ? AppColors.accent
+        : LightPageColors.muted;
 
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark
-                    ? AppColors.accent.withValues(alpha: 0.12)
-                    : AppColors.accent.withValues(alpha: 0.10))
-              : Colors.transparent,
-          borderRadius: AppRadius.largeBorderRadius,
-        ),
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        splashColor: AppColors.accent.withValues(alpha: 0.12),
         child: Column(
-          mainAxisSize: MainAxisSize.max,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              margin: const EdgeInsets.only(bottom: 2),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: isSelected ? 16 : 0,
+              height: 3,
+              margin: const EdgeInsets.only(bottom: 4),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.accent
-                    : (isDark
-                          ? AppColors.white.withValues(alpha: 0.12)
-                          : AppColors.surfaceSecondary(context)),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(
-                icon,
-                color: isSelected
-                    ? AppColors.white
-                    : (isDark
-                          ? AppColors.white.withValues(alpha: 0.86)
-                          : AppColors.grey),
-                size: 20,
+                color: AppColors.accent,
+                borderRadius: BorderRadius.circular(99),
               ),
             ),
-            const SizedBox(height: 2),
+            Icon(icon, size: 22, color: color),
+            const SizedBox(height: 3),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 9,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 10,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected
-                    ? AppColors.accent
-                    : (isDark
-                          ? AppColors.white.withValues(alpha: 0.78)
-                          : AppColors.grey),
+                color: color,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

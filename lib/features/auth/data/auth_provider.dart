@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/session_invalidation.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../shared/models/auth_models.dart';
 import 'auth_repository.dart';
@@ -16,7 +17,34 @@ class AuthNotifier extends Notifier<AuthState> {
 
   @override
   AuthState build() {
+    AuthNotifier._active = this;
+    kabaOnSessionInvalid = AuthNotifier._onSessionInvalid;
+    ref.onDispose(() {
+      if (AuthNotifier._active == this) {
+        AuthNotifier._active = null;
+      }
+    });
+    Future.microtask(() async {
+      await _authRepository.discardNonStudentSession();
+      if (state != _checkAuthStatus()) {
+        state = _checkAuthStatus();
+      }
+    });
     return _checkAuthStatus();
+  }
+
+  static AuthNotifier? _active;
+
+  static void _onSessionInvalid() {
+    _active?.expireSession();
+  }
+
+  void expireSession() {
+    if (_authRepository.isAuthenticated()) return;
+    _currentUser = null;
+    if (state != AuthState.unauthenticated) {
+      state = AuthState.unauthenticated;
+    }
   }
 
   AuthState _checkAuthStatus() {
@@ -39,12 +67,16 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<AuthResponse?> verifyOtp({
     required String phone,
     required String code,
+    String? campusId,
+    String? referralCode,
   }) async {
     _errorMessage = null;
     try {
       final response = await _authRepository.verifyOtp(
         phone: phone,
         code: code,
+        campusId: campusId,
+        referralCode: referralCode,
       );
       _currentUser = response.user;
       state = AuthState.authenticated;
@@ -91,8 +123,8 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  void continueAsDemoUser() {
-    _currentUser = null;
+  Future<void> hydrateUser(UserModel user) async {
+    _currentUser = user;
     state = AuthState.authenticated;
   }
 

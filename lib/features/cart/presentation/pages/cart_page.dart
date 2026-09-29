@@ -1,72 +1,80 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/network/repositories.dart';
+import '../../../../core/network/session_providers.dart';
+import '../../../../core/utils/api_error.dart';
+import '../../../../core/utils/ticket_format.dart';
+import '../../../../core/utils/kaba_snack.dart';
+import '../../../../shared/models/api_models.dart';
+import '../../../../features/auth/data/auth_provider.dart';
+import '../../../../shared/widgets/kaba_premium.dart';
 import '../../../../shared/widgets/light_page_scaffold.dart';
+import '../../../../shared/widgets/remote_photo.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../data/cart_provider.dart';
 
-class CartPage extends StatefulWidget {
+class CartPage extends ConsumerStatefulWidget {
   const CartPage({super.key});
 
   @override
-  State<CartPage> createState() => _CartPageState();
+  ConsumerState<CartPage> createState() => _CartPageState();
 }
 
-class _CartPageState extends State<CartPage> {
-  final List<Map<String, dynamic>> _items = [
-    {
-      'id': 1,
-      'name': 'Plat Attiéké + Poisson',
-      'canteen': 'Chez Mama Afi',
-      'price': 1500,
-      'quantity': 2,
-      'image': 'assets/images/plat/plat1.webp',
-      'note': 'Piment fort svp',
-    },
-    {
-      'id': 2,
-      'name': 'Riz Yassa Poulet',
-      'canteen': 'Chez Mama Afi',
-      'price': 1800,
-      'quantity': 1,
-      'image': 'assets/images/plat/plat2.webp',
-      'note': null,
-    },
-    {
-      'id': 3,
-      'name': 'Spaghetti Bolognaise',
-      'canteen': 'Chez Mama Afi',
-      'price': 1200,
-      'quantity': 1,
-      'image': 'assets/images/spaghetti.webp',
-      'note': null,
-    },
-  ];
+class _CartPageState extends ConsumerState<CartPage> {
+  bool _paying = false;
 
-  final int _userBalance = 5000;
+  List<CartLine> get _items => ref.watch(cartProvider).lines;
 
-  int get _totalPrice => _items.fold(
-        0,
-        (sum, item) => sum + (item['price'] as int) * (item['quantity'] as int),
-      );
+  int get _userBalance =>
+      ref.watch(meProvider).valueOrNull?.walletBalance ??
+      ref.watch(currentUserProvider)?.walletBalance ??
+      0;
 
-  bool get _hasEnough => _userBalance >= _totalPrice;
+  int get _totalPrice => ref.watch(cartProvider).totalTickets;
+
+  bool get _hasEnough => _userBalance >= _totalPrice && _items.isNotEmpty;
 
   void _updateQty(int index, int delta) {
-    setState(() {
-      final newQty = (_items[index]['quantity'] as int) + delta;
-      if (newQty <= 0) {
-        _items.removeAt(index);
-      } else {
-        _items[index]['quantity'] = newQty;
-      }
-    });
+    final line = _items[index];
+    ref
+        .read(cartProvider.notifier)
+        .setQuantityByKey(line.lineKey, line.quantity + delta);
+  }
+
+  Future<void> _checkout() async {
+    final cart = ref.read(cartProvider);
+    if (cart.isEmpty || cart.vendorId == null) return;
+    if (!_hasEnough) {
+      context.push('/recharge/step1');
+      return;
+    }
+    setState(() => _paying = true);
+    try {
+      await ref.read(orderRepositoryProvider).createOrder(
+        vendorId: cart.vendorId!,
+        items: [for (final line in cart.lines) line.toOrderJson()],
+        packagingOptionId: cart.packagingOptionId,
+      );
+      ref.read(cartProvider.notifier).clear();
+      ref.invalidate(meProvider);
+      ref.invalidate(myOrdersProvider);
+      if (!mounted) return;
+      showKabaSnack(context, 'Commande envoyée');
+      context.push('/order-history');
+    } catch (error) {
+      if (mounted) showKabaSnack(context, apiErrorMessage(error), error: true);
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return LightPageScaffold(
       title: 'Mon panier',
-      showBackButton: false,
+      showBackButton: true,
       actions: [
         if (_items.isNotEmpty)
           Padding(
@@ -114,74 +122,51 @@ class _CartPageState extends State<CartPage> {
 
   Widget _buildEmpty() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                color: LightPageColors.indigoLight,
-                borderRadius: BorderRadius.circular(28),
-              ),
-              child: const Icon(
-                Icons.shopping_cart_outlined,
-                size: 44,
-                color: LightPageColors.indigo,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Votre panier est vide',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: LightPageColors.text,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Ajoutez des plats depuis les cantines de votre campus.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                color: LightPageColors.muted,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: LightButton(
-                text: 'Découvrir les cantines',
-                icon: Icons.restaurant_menu_rounded,
-                onPressed: () => context.go('/canteen-list'),
-              ),
-            ),
-          ],
-        ),
+      child: KabaEmptyState(
+        icon: Icons.shopping_bag_outlined,
+        title: 'Panier vide',
+        subtitle: 'Ajoute des plats depuis les cantines de ton campus.',
+        actionLabel: 'Découvrir les cantines',
+        onAction: () => context.go('/canteen-list'),
       ),
     );
   }
 
   Widget _buildCanteenHeader() {
+    final cart = ref.watch(cartProvider);
+    final vendors = ref.watch(vendorsListProvider).valueOrNull ?? const [];
+    VendorModel? vendor;
+    for (final item in vendors) {
+      if (item.id == cart.vendorId) {
+        vendor = item;
+        break;
+      }
+    }
     return LightCard(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
+      onTap: cart.vendorId == null
+          ? null
+          : () => context.push('/canteen-detail', extra: cart.vendorId),
       child: Row(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: LightPageColors.orangeLight,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.restaurant_rounded,
-              color: LightPageColors.orange,
-              size: 22,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: RemotePhoto(
+              url: vendor?.logoUrl ?? vendor?.bannerUrl,
+              width: 52,
+              height: 52,
+              radius: 14,
+              fallback: Container(
+                width: 52,
+                height: 52,
+                color: LightPageColors.indigoLight,
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.restaurant_rounded,
+                  color: LightPageColors.indigo,
+                  size: 22,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -190,7 +175,7 @@ class _CartPageState extends State<CartPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Chez Mama Afi',
+                  cart.vendorName.isEmpty ? 'Cantine' : cart.vendorName,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -199,7 +184,7 @@ class _CartPageState extends State<CartPage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '3 plats · UCAO Campus',
+                  '${cart.itemCount} plats',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 11.5,
                     color: LightPageColors.muted,
@@ -208,7 +193,13 @@ class _CartPageState extends State<CartPage> {
               ],
             ),
           ),
-          const LightBadge(text: 'Ouvert'),
+          if (vendor != null)
+            KabaStatusPill(
+              label: vendor.isOpen ? 'Ouverte' : 'Fermée',
+              color: vendor.isOpen
+                  ? LightPageColors.green
+                  : LightPageColors.muted,
+            ),
         ],
       ),
     );
@@ -220,25 +211,22 @@ class _CartPageState extends State<CartPage> {
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(11),
-            child: Image.asset(
-              item['image'] as String,
+          RemotePhoto(
+            url: item.imageUrl,
+            width: 68,
+            height: 68,
+            radius: 11,
+            fallback: Container(
               width: 68,
               height: 68,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  color: LightPageColors.indigoLight,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: const Icon(
-                  Icons.restaurant_rounded,
-                  color: LightPageColors.indigo,
-                  size: 26,
-                ),
+              decoration: BoxDecoration(
+                color: LightPageColors.indigoLight,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(
+                Icons.restaurant_rounded,
+                color: LightPageColors.indigo,
+                size: 26,
               ),
             ),
           ),
@@ -248,7 +236,7 @@ class _CartPageState extends State<CartPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item['name'] as String,
+                  item.name,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -257,26 +245,29 @@ class _CartPageState extends State<CartPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (item.components.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    item.components
+                        .map((c) => '${c.name} ×${c.quantity}')
+                        .join(' · '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10.5,
+                      color: LightPageColors.muted,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 3),
                 Text(
-                  '${item['price']} tickets',
+                  '${formatTickets(item.unitTotal)} tickets',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                     color: LightPageColors.orange,
                   ),
                 ),
-                if (item['note'] != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    '« ${item['note']} »',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10.5,
-                      color: LightPageColors.muted,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -302,7 +293,7 @@ class _CartPageState extends State<CartPage> {
             width: 28,
             alignment: Alignment.center,
             child: Text(
-              '${item['quantity']}',
+              '${item.quantity}',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
@@ -332,6 +323,14 @@ class _CartPageState extends State<CartPage> {
   }
 
   Widget _buildPackagingOption() {
+    final firstItemId = _items.isEmpty ? null : _items.first.menuItemId;
+    final options = firstItemId == null
+        ? const <PackagingOptionModel>[]
+        : ref.watch(packagingOptionsProvider(firstItemId)).valueOrNull ??
+            const <PackagingOptionModel>[];
+    if (options.isEmpty) return const SizedBox.shrink();
+    final selectedId = ref.watch(cartProvider).packagingOptionId;
+
     return LightCard(
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -339,7 +338,7 @@ class _CartPageState extends State<CartPage> {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.shopping_bag_outlined,
                 color: LightPageColors.indigo,
                 size: 18,
@@ -356,21 +355,30 @@ class _CartPageState extends State<CartPage> {
             ],
           ),
           const SizedBox(height: 12),
-          _packagingRow(
-            icon: Icons.restaurant_outlined,
-            title: 'Sur place',
-            subtitle: 'Service en salle — ticket 0',
-            price: 0,
-            selected: true,
-          ),
-          const SizedBox(height: 8),
-          _packagingRow(
-            icon: Icons.takeout_dining_outlined,
-            title: 'À emporter',
-            subtitle: 'Boîte biodégradable — +100 tickets',
-            price: 100,
-            selected: false,
-          ),
+          ...options.map((option) {
+            final selected = selectedId == option.id;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InkWell(
+                onTap: () => ref.read(cartProvider.notifier).setPackaging(
+                      optionId: option.id,
+                      extra: option.extraCost,
+                    ),
+                borderRadius: BorderRadius.circular(11),
+                child: _packagingRow(
+                  icon: option.extraCost > 0
+                      ? Icons.takeout_dining_outlined
+                      : Icons.restaurant_outlined,
+                  title: option.name,
+                  subtitle: option.extraCost == 0
+                      ? 'Sans supplément'
+                      : '+${formatTickets(option.extraCost)} tickets',
+                  price: option.extraCost,
+                  selected: selected,
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -465,7 +473,17 @@ class _CartPageState extends State<CartPage> {
       padding: const EdgeInsets.all(14),
       child: Column(
         children: [
-          _summaryRow('Sous-total', '$_totalPrice tickets'),
+          _summaryRow(
+            'Sous-total',
+            '${formatTickets(ref.watch(cartProvider).itemsTickets)} tickets',
+          ),
+          if (ref.watch(cartProvider).packagingExtra > 0) ...[
+            const SizedBox(height: 10),
+            _summaryRow(
+              'Emballage',
+              '+${formatTickets(ref.watch(cartProvider).packagingExtra)} tickets',
+            ),
+          ],
           const SizedBox(height: 10),
           _summaryRow('Frais de service', '0 tickets', isFree: true),
           const SizedBox(height: 10),
@@ -547,7 +565,7 @@ class _CartPageState extends State<CartPage> {
                     color: LightPageColors.indigoLight,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.account_balance_wallet_outlined,
                     size: 16,
                     color: LightPageColors.indigo,
@@ -599,8 +617,10 @@ class _CartPageState extends State<CartPage> {
                   ? Icons.payment_rounded
                   : Icons.add_circle_outline_rounded,
               isPrimary: _hasEnough,
-              onPressed: _hasEnough
-                  ? () => context.push('/payment')
+              onPressed: _paying
+                  ? null
+                  : _hasEnough
+                  ? _checkout
                   : () => context.push('/recharge/step1'),
             ),
           ],

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/network/api_payload.dart';
 import '../../../shared/models/api_models.dart';
 
 class VendorRepository {
@@ -17,14 +18,14 @@ class VendorRepository {
       queryParameters: {'page': page, 'limit': limit},
     );
     return PaginatedResponse<VendorModel>.fromJson(
-      response.data as Map<String, dynamic>,
+      unwrapPage(response.data),
       VendorModel.fromJson,
     );
   }
 
   Future<VendorModel> getVendorById(String id) async {
     final response = await _apiClient.get(ApiEndpoints.vendorById(id));
-    return VendorModel.fromJson(response.data as Map<String, dynamic>);
+    return VendorModel.fromJson(unwrapEntity(response.data));
   }
 }
 
@@ -47,14 +48,29 @@ class CampusRepository {
       queryParameters: {'page': page, 'limit': limit},
     );
     return PaginatedResponse<CampusModel>.fromJson(
-      response.data as Map<String, dynamic>,
+      unwrapPage(response.data),
       CampusModel.fromJson,
     );
   }
 
   Future<CampusModel> getCampusById(String id) async {
     final response = await _apiClient.get(ApiEndpoints.campusById(id));
-    return CampusModel.fromJson(response.data as Map<String, dynamic>);
+    return CampusModel.fromJson(unwrapEntity(response.data));
+  }
+
+  Future<List<FacultyModel>> findFaculties(String campusId) async {
+    final response = await _apiClient.get(ApiEndpoints.campusFaculties(campusId));
+    final raw = response.data;
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map((item) => FacultyModel.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    }
+    return PaginatedResponse<FacultyModel>.fromJson(
+      unwrapPage(raw),
+      FacultyModel.fromJson,
+    ).data;
   }
 }
 

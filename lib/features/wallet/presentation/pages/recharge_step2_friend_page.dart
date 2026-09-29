@@ -13,16 +13,10 @@ class RechargeStep2FriendPage extends StatefulWidget {
 }
 
 class _RechargeStep2FriendPageState extends State<RechargeStep2FriendPage> {
-  final phoneController = TextEditingController(text: '91 23 45 67');
-  final nameController = TextEditingController(text: 'Yao Mensah');
+  final phoneController = TextEditingController();
+  final nameController = TextEditingController();
   final List<int> amounts = [500, 1000, 2500, 5000, 10000, 20000];
-  int? selectedAmount = 1000;
-
-  final List<Map<String, dynamic>> recent = [
-    {'name': 'Yao Mensah', 'phone': '+228 91 23 45 67', 'initials': 'YM'},
-    {'name': 'Afi Kossi', 'phone': '+228 92 34 56 78', 'initials': 'AK'},
-    {'name': 'Komi Johnson', 'phone': '+228 93 45 67 89', 'initials': 'KJ'},
-  ];
+  int? selectedAmount;
 
   int get total => selectedAmount ?? 0;
 
@@ -56,8 +50,6 @@ class _RechargeStep2FriendPageState extends State<RechargeStep2FriendPage> {
             _buildPhoneField(),
             const SizedBox(height: 12),
             _buildNameField(),
-            const SizedBox(height: 16),
-            _buildRecentSection(),
             const SizedBox(height: 20),
             Text(
               'Montant à envoyer',
@@ -86,8 +78,8 @@ class _RechargeStep2FriendPageState extends State<RechargeStep2FriendPage> {
                     child: Container(
                       decoration: BoxDecoration(
                         color: sel
-                            ? LightPageColors.orangeLight.withValues(alpha: 0.9)
-                            : Colors.white,
+                            ? LightPageColors.orangeLight
+                            : LightPageColors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: sel
@@ -192,7 +184,7 @@ class _RechargeStep2FriendPageState extends State<RechargeStep2FriendPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: LightPageColors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: LightPageColors.border, width: 1.5),
       ),
@@ -243,7 +235,7 @@ class _RechargeStep2FriendPageState extends State<RechargeStep2FriendPage> {
               ),
             ),
           ),
-          const Icon(
+          Icon(
             Icons.contacts_outlined,
             size: 18,
             color: LightPageColors.indigo,
@@ -257,7 +249,7 @@ class _RechargeStep2FriendPageState extends State<RechargeStep2FriendPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: LightPageColors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: LightPageColors.border, width: 1.5),
       ),
@@ -292,99 +284,6 @@ class _RechargeStep2FriendPageState extends State<RechargeStep2FriendPage> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildRecentSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Destinataires récents',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: LightPageColors.text2,
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 72,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: recent.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, i) {
-              final r = recent[i];
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    phoneController.text = (r['phone'] as String).replaceFirst(
-                      '+228 ',
-                      '',
-                    );
-                    nameController.text = r['name'] as String;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: LightPageColors.border, width: 1),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: LightPageColors.indigoLight,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          r['initials'] as String,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: LightPageColors.indigo,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            r['name'] as String,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: LightPageColors.text,
-                            ),
-                          ),
-                          Text(
-                            r['phone'] as String,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 10.5,
-                              color: LightPageColors.muted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
     );
   }
 

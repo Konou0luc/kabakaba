@@ -50,7 +50,7 @@ class SendOtpResponse {
   SendOtpResponse({required this.message});
 
   factory SendOtpResponse.fromJson(Map<String, dynamic> json) =>
-      SendOtpResponse(message: json['message'] as String);
+      SendOtpResponse(message: json['message'] as String? ?? 'Code envoyé');
 
   Map<String, dynamic> toJson() => {'message': message};
 }

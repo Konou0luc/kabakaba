@@ -2,43 +2,43 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'ambassador_application_pages.dart';
+import '../../../../core/network/repositories.dart';
+import '../../../../core/network/session_providers.dart';
+import '../../../../core/utils/api_error.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../features/auth/data/auth_provider.dart';
+import '../../../../shared/models/api_models.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/utils/phone_e164.dart';
 import '../../../../core/utils/toast_helper.dart';
 import '../../../../shared/widgets/kaba_button.dart';
 import '../../../../shared/widgets/kaba_card.dart';
 import '../../../../shared/widgets/kaba_input.dart';
 import '../../../../shared/widgets/kaba_background.dart';
 
-class AmbassadorSignupPage extends StatefulWidget {
+class AmbassadorSignupPage extends ConsumerStatefulWidget {
   const AmbassadorSignupPage({super.key});
 
   @override
-  State<AmbassadorSignupPage> createState() => _AmbassadorSignupPageState();
+  ConsumerState<AmbassadorSignupPage> createState() =>
+      _AmbassadorSignupPageState();
 }
 
-class _AmbassadorSignupPageState extends State<AmbassadorSignupPage> {
+class _AmbassadorSignupPageState extends ConsumerState<AmbassadorSignupPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController(text: '+228 ');
+  final _phoneController = TextEditingController();
   final _promoCodeController = TextEditingController();
-  final _schoolController = TextEditingController();
-  final _facultyController = TextEditingController();
+  FacultyModel? _selectedFaculty;
   XFile? _studentIdPhoto;
+  String? _schoolCardUrl;
   bool _isLoading = false;
-
-  // Example list of schools (we can make this dynamic later)
-  static const List<String> _schools = [
-    'Université de Lomé',
-    'Université de Kara',
-    'École Supérieure Polytechnique de Lomé',
-    'Institut National de Formation des Maîtres',
-    'École Nationale d\'Administration et de Magistrature',
-    'Autre',
-  ];
+  bool _uploading = false;
 
   @override
   void dispose() {
@@ -46,9 +46,23 @@ class _AmbassadorSignupPageState extends State<AmbassadorSignupPage> {
     _emailController.dispose();
     _phoneController.dispose();
     _promoCodeController.dispose();
-    _schoolController.dispose();
-    _facultyController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final user = ref.read(meProvider).valueOrNull ?? ref.read(currentUserProvider);
+    if (user != null) {
+      _nameController.text = [
+        user.firstName,
+        user.lastName,
+      ].where((part) => part != null && part.isNotEmpty).join(' ');
+      final phone = user.phone?.trim();
+      _phoneController.text =
+          (phone == null || phone.isEmpty) ? '' : formatTogoDisplay(phone);
+      _emailController.text = user.email ?? '';
+    }
   }
 
   String _generatePromoCode() {
@@ -75,49 +89,67 @@ class _AmbassadorSignupPageState extends State<AmbassadorSignupPage> {
     if (photo != null) {
       setState(() {
         _studentIdPhoto = photo;
+        _uploading = true;
       });
+      try {
+        final url = await ref
+            .read(ambassadorRepositoryProvider)
+            .uploadSchoolCard(photo.path);
+        if (!mounted) return;
+        setState(() => _schoolCardUrl = url);
+      } catch (error) {
+        if (mounted) {
+          ToastHelper.showError(apiErrorMessage(error));
+          setState(() {
+            _studentIdPhoto = null;
+            _schoolCardUrl = null;
+          });
+        }
+      } finally {
+        if (mounted) setState(() => _uploading = false);
+      }
     }
   }
 
   Future<void> _handleSignup() async {
     if (_formKey.currentState!.validate()) {
+      if (toTogoLocalDigits(_phoneController.text).length < 8) {
+        ToastHelper.showError('Veuillez entrer un numéro valide');
+        return;
+      }
       // Check if photo is selected
-      if (_studentIdPhoto == null) {
+      if (_schoolCardUrl == null || _schoolCardUrl!.isEmpty) {
         ToastHelper.showError(
           'Veuillez ajouter une photo de votre carte scolaire',
         );
         return;
       }
-      if (_schoolController.text.isEmpty) {
-        ToastHelper.showError('Veuillez sélectionner votre école');
+      final user =
+          ref.read(meProvider).valueOrNull ?? ref.read(currentUserProvider);
+      final campus = (ref.read(campusesListProvider).valueOrNull ?? const [])
+          .where((item) => item.id == user?.campusId)
+          .firstOrNull;
+      if (_selectedFaculty == null) {
+        ToastHelper.showError('Choisis ta faculté dans la liste du campus.');
         return;
       }
-      if (_facultyController.text.isEmpty) {
-        ToastHelper.showError('Veuillez renseigner votre faculté/institut');
-        return;
-      }
 
-      setState(() => _isLoading = true);
-
-      // Simuler un appel API
-      await Future.delayed(const Duration(seconds: 2));
-
-      if (!mounted) return;
-
-      setState(() => _isLoading = false);
-      ToastHelper.showSuccess(
-        'Demande envoyée ! Nous vous contacterons bientôt.',
+      final draft = AmbassadorApplicationData(
+        fullName: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        phone: toTogoE164(_phoneController.text),
+        school: campus?.institution ?? campus?.name ?? 'Campus',
+        faculty: _selectedFaculty!.name,
+        facultyId: _selectedFaculty!.id,
+        schoolCardUrl: _schoolCardUrl,
+        promoCode: _promoCodeController.text.trim().toUpperCase(),
       );
-
-      // Retourner à l'accueil
-      context.go('/home');
+      context.push('/ambassador/code', extra: draft.toMap());
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -169,123 +201,70 @@ class _AmbassadorSignupPageState extends State<AmbassadorSignupPage> {
                         keyboardType: TextInputType.emailAddress,
                       ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.1),
                       const SizedBox(height: 16),
-                      KabaInput(
+                      KabaPhoneField(
                         label: 'Numéro de téléphone',
-                        hintText: 'Ex: 90 00 00 00',
                         controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        prefixIcon: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.phone_iphone_rounded),
-                              const SizedBox(width: 8),
-                              Text(
-                                '+228',
-                                style: AppTextStyles.bodyMedium.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark
-                                      ? AppColors.white
-                                      : AppColors.primary,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                width: 1,
-                                height: 20,
-                                color: AppColors.greyLight,
-                              ),
-                            ],
-                          ),
-                        ),
-                        maxLength: 12,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Veuillez entrer votre numéro';
-                          }
-                          return null;
-                        },
                       ).animate().fadeIn(delay: 800.ms).slideY(begin: 0.1),
                       const SizedBox(height: 16),
-                      // School selection
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'École / Université',
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: AppColors.grey,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color:
-                                  Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? Colors.white.withValues(alpha: 0.05)
-                                  : Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color:
-                                    Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? Colors.white.withValues(alpha: 0.1)
-                                    : AppColors.greyLight,
-                                width: 1,
-                              ),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _schoolController.text.isEmpty
-                                    ? null
-                                    : _schoolController.text,
-                                hint: Text(
-                                  'Sélectionnez votre école',
-                                  style: AppTextStyles.bodyMedium.copyWith(
-                                    color:
-                                        Theme.of(context).brightness ==
-                                            Brightness.dark
-                                        ? Colors.white.withValues(alpha: 0.3)
-                                        : AppColors.textSecondaryLight,
-                                  ),
+                      Builder(
+                        builder: (context) {
+                          final user = ref.watch(meProvider).valueOrNull ??
+                              ref.watch(currentUserProvider);
+                          final campusId = user?.campusId;
+                          final campuses =
+                              ref.watch(campusesListProvider).valueOrNull ??
+                                  const [];
+                          final campus = campuses
+                              .where((item) => item.id == campusId)
+                              .firstOrNull;
+                          final faculties = campusId == null
+                              ? const <FacultyModel>[]
+                              : ref.watch(facultiesProvider(campusId)).valueOrNull ??
+                                  const <FacultyModel>[];
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Campus',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.grey,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                isExpanded: true,
-                                items: _schools.map((school) {
-                                  return DropdownMenuItem(
-                                    value: school,
-                                    child: Text(
-                                      school,
-                                      style: AppTextStyles.bodyMedium,
-                                    ),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _schoolController.text = value ?? '';
-                                  });
-                                },
                               ),
-                            ),
-                          ),
-                        ],
+                              const SizedBox(height: 8),
+                              Text(
+                                campus?.institution ??
+                                    campus?.name ??
+                                    'Aucun campus associé à ton compte',
+                                style: AppTextStyles.bodyMedium,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Faculté / Institut',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.grey,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<FacultyModel>(
+                                initialValue: _selectedFaculty,
+                                hint: const Text('Choisis ta faculté'),
+                                items: faculties
+                                    .map(
+                                      (faculty) => DropdownMenuItem(
+                                        value: faculty,
+                                        child: Text(faculty.name),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) =>
+                                    setState(() => _selectedFaculty = value),
+                              ),
+                            ],
+                          );
+                        },
                       ).animate().fadeIn(delay: 900.ms).slideY(begin: 0.1),
-                      const SizedBox(height: 16),
-                      KabaInput(
-                        label: 'Faculté / Institut',
-                        hintText: 'Ex: Faculté des Sciences',
-                        controller: _facultyController,
-                        keyboardType: TextInputType.text,
-                      ).animate().fadeIn(delay: 1000.ms).slideY(begin: 0.1),
                       const SizedBox(height: 16),
                       // Student ID photo
                       Column(
@@ -320,7 +299,12 @@ class _AmbassadorSignupPageState extends State<AmbassadorSignupPage> {
                                   width: 1,
                                 ),
                               ),
-                              child: _studentIdPhoto == null
+                              child: _uploading
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(16),
+                                      child: CircularProgressIndicator(),
+                                    )
+                                  : _studentIdPhoto == null
                                   ? Column(
                                       children: [
                                         Icon(

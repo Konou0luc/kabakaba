@@ -1,61 +1,112 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../shared/widgets/light_page_scaffold.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class RechargeStep3Page extends StatefulWidget {
+import '../../../../core/network/repositories.dart';
+import '../../../../core/network/session_providers.dart';
+import '../../../../core/utils/api_error.dart';
+import '../../../../core/utils/kaba_snack.dart';
+import '../../../../core/utils/phone_e164.dart';
+import '../../../../core/utils/ticket_format.dart';
+import '../../../../features/auth/data/auth_provider.dart';
+import '../../../../shared/widgets/light_page_scaffold.dart';
+
+class RechargeStep3Page extends ConsumerStatefulWidget {
   final Map<String, dynamic> data;
   const RechargeStep3Page({super.key, required this.data});
 
   @override
-  State<RechargeStep3Page> createState() => _RechargeStep3PageState();
+  ConsumerState<RechargeStep3Page> createState() => _RechargeStep3PageState();
 }
 
-class _RechargeStep3PageState extends State<RechargeStep3Page> {
-  int? selectedPayment = 0;
-  final List<Map<String, dynamic>> methods = [
-    {
-      'name': 'Mobile Money',
-      'subtitle': 'Togocom · Moov Money',
-      'icon': Icons.phone_android_rounded,
-      'color': const Color(0xFF10B981),
-      'bgColor': const Color(0xFFD1FAE5),
-    },
-    {
-      'name': 'Carte bancaire',
-      'subtitle': 'Visa · Mastercard',
-      'icon': Icons.credit_card_rounded,
-      'color': const Color(0xFF6366F1),
-      'bgColor': const Color(0xFFE0E7FF),
-    },
-    {
-      'name': 'Apple Pay / Google Pay',
-      'subtitle': 'Paiement express',
-      'icon': Icons.touch_app_rounded,
-      'color': const Color(0xFF0D1438),
-      'bgColor': const Color(0xFFE4E8F1),
-    },
-  ];
+class _RechargeStep3PageState extends ConsumerState<RechargeStep3Page> {
+  String _operator = 'FLOOZ';
+  late final TextEditingController _phone;
+  bool _paying = false;
 
-  bool get isSelf => widget.data['recipient'] == 'self';
-  int get amount => widget.data['amount'] as int;
-  int get bonus => (widget.data['bonus'] ?? 0) as int;
-  int get total => amount + bonus;
+  int get _amount => (widget.data['amountFcfa'] as num?)?.toInt() ?? 0;
+  int get _tickets => (widget.data['ticketsReceived'] as num?)?.toInt() ?? 0;
+  int get _fee => (widget.data['feeFcfa'] as num?)?.toInt() ?? 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = ref.read(meProvider).valueOrNull ?? ref.read(currentUserProvider);
+    _phone = TextEditingController(
+      text: user?.phone != null ? formatTogoDisplay(user!.phone!) : '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _phone.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pay() async {
+    final phone = toTogoE164(_phone.text);
+    if (phone.length < 12) {
+      showKabaSnack(context, 'Indique le numéro Mobile Money.', error: true);
+      return;
+    }
+    setState(() => _paying = true);
+    try {
+      final repo = ref.read(paymentRepositoryProvider);
+      final created = await repo.createPaymentIntent(
+        amountFcfa: _amount,
+        operator: _operator,
+      );
+      await repo.initiatePayment(
+        paymentId: created.payment.id,
+        phoneNumber: phone,
+      );
+      if (!mounted) return;
+      context.pushReplacement('/recharge/confirmation', extra: {
+        'paymentId': created.payment.id,
+        'amountFcfa': created.recap.amountFcfa,
+        'ticketsReceived': created.recap.ticketsReceived,
+        'feeFcfa': created.recap.feeFcfa,
+        'operator': _operator,
+        'phone': phone,
+      });
+    } catch (error) {
+      if (mounted) showKabaSnack(context, apiErrorMessage(error), error: true);
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return LightPageScaffold(
-      title: 'Récapitulatif',
+      title: 'Paiement Mobile Money',
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildStepIndicator(step: 3, total: 3),
+            _stepBar(),
             const SizedBox(height: 16),
+            LightCard(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                children: [
+                  _row('Montant débité', '${formatTickets(_amount)} FCFA'),
+                  const SizedBox(height: 8),
+                  _row('Frais inclus', '${formatTickets(_fee)} FCFA'),
+                  const SizedBox(height: 8),
+                  _row(
+                    'Tickets crédités',
+                    formatTickets(_tickets),
+                    emphasize: true,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
             Text(
-              'Votre commande',
+              'Opérateur',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
@@ -63,47 +114,63 @@ class _RechargeStep3PageState extends State<RechargeStep3Page> {
               ),
             ),
             const SizedBox(height: 12),
-            _buildRecipientCard(),
-            const SizedBox(height: 14),
-            _buildAmountSummary(),
+            _operatorTile('FLOOZ', 'Moov Flooz', Icons.phone_android_rounded),
+            const SizedBox(height: 10),
+            _operatorTile('MIXX', 'Mixx by Yas', Icons.sim_card_rounded),
             const SizedBox(height: 20),
             Text(
-              'Moyen de paiement',
+              'Numéro qui paie',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
                 color: LightPageColors.text,
               ),
             ),
-            const SizedBox(height: 12),
-            ...List.generate(methods.length, (i) {
-              final m = methods[i];
-              final sel = selectedPayment == i;
-              return Padding(
-                padding: EdgeInsets.only(bottom: i == methods.length - 1 ? 0 : 10),
-                child: _paymentMethod(m, sel, i).animate().fadeIn(
-                      delay: (40 * i).ms,
-                      begin: 0.9,
-                    ),
-              );
-            }),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: LightPageColors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: LightPageColors.border),
+              ),
+              child: TextField(
+                controller: _phone,
+                keyboardType: TextInputType.phone,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: LightPageColors.text,
+                ),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  prefixText: '+228  ',
+                  prefixStyle: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: LightPageColors.text,
+                  ),
+                  hintText: '90 12 34 56',
+                  hintStyle: GoogleFonts.plusJakartaSans(
+                    color: LightPageColors.muted,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const LightHintBox(
+              text:
+                  'Tu vas recevoir une demande de paiement sur ce numéro. Valide-la pour créditer tes tickets.',
+            ),
             const SizedBox(height: 20),
-            _buildSecurityNote(),
-            const SizedBox(height: 20),
-            _buildTotalBottom(),
-            const SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
               child: LightButton(
-                text:
-                    'Payer ${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} FCFA',
+                text: _paying
+                    ? 'Envoi en cours…'
+                    : 'Payer ${formatTickets(_amount)} FCFA',
                 icon: Icons.lock_rounded,
-                onPressed: () {
-                  context.pushReplacement('/recharge/confirmation', extra: {
-                    ...widget.data,
-                    'payment': methods[selectedPayment ?? 0]['name'],
-                  });
-                },
+                onPressed: _paying ? null : _pay,
               ),
             ),
           ],
@@ -112,18 +179,62 @@ class _RechargeStep3PageState extends State<RechargeStep3Page> {
     );
   }
 
-  Widget _buildStepIndicator({required int step, required int total}) {
+  Widget _operatorTile(String value, String label, IconData icon) {
+    final selected = _operator == value;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => setState(() => _operator = value),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: selected
+                ? LightPageColors.orangeLight
+                : LightPageColors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? LightPageColors.orange : LightPageColors.border,
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: LightPageColors.indigo),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: LightPageColors.text,
+                  ),
+                ),
+              ),
+              Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_off_rounded,
+                color: selected ? LightPageColors.orange : LightPageColors.muted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _stepBar() {
     return Row(
       children: [
-        ...List.generate(total, (i) {
-          final isActive = i < step;
+        ...List.generate(3, (i) {
           return Expanded(
             child: Container(
-              margin: EdgeInsets.only(right: i == total - 1 ? 0 : 8),
+              margin: EdgeInsets.only(right: i == 2 ? 0 : 8),
               height: 4,
               decoration: BoxDecoration(
-                color:
-                    isActive ? LightPageColors.orange : LightPageColors.border,
+                color: LightPageColors.orange,
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -131,7 +242,7 @@ class _RechargeStep3PageState extends State<RechargeStep3Page> {
         }),
         const SizedBox(width: 12),
         LightBadge(
-          text: 'Étape $step/$total',
+          text: 'Étape 3/3',
           bgColor: LightPageColors.orangeLight,
           color: LightPageColors.orange,
         ),
@@ -139,353 +250,20 @@ class _RechargeStep3PageState extends State<RechargeStep3Page> {
     );
   }
 
-  Widget _buildRecipientCard() {
-    return LightCard(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: isSelf
-                  ? LightPageColors.indigoLight
-                  : LightPageColors.orangeLight,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              isSelf ? Icons.person_outline_rounded : Icons.person_add_rounded,
-              color: isSelf
-                  ? LightPageColors.indigo
-                  : LightPageColors.orange,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isSelf
-                      ? 'Mon portefeuille'
-                      : (widget.data['recipientName'] ?? 'Ami'),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: LightPageColors.text,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  isSelf
-                      ? '+228 90 12 34 56 · Koffi Mensah'
-                      : (widget.data['recipientPhone'] ?? ''),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11.5,
-                    color: LightPageColors.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          LightBadge(
-            text: isSelf ? 'Moi' : 'Ami',
-            bgColor: isSelf
-                ? LightPageColors.indigoLight
-                : LightPageColors.orangeLight,
-            color: isSelf
-                ? LightPageColors.indigo
-                : LightPageColors.orange,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAmountSummary() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      decoration: BoxDecoration(
-        color: LightPageColors.bg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: LightPageColors.border, width: 1),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Tickets achetés',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12.5,
-                  color: LightPageColors.text2,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Text(
-                '$amount tickets',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: LightPageColors.text,
-                ),
-              ),
-            ],
-          ),
-          if (bonus > 0) ...[
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Bonus kabakaba',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12.5,
-                    color: LightPageColors.text2,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  '+$bonus tickets',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: LightPageColors.green,
-                  ),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Frais de service',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12.5,
-                  color: LightPageColors.text2,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Text(
-                '0 FCFA',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: LightPageColors.green,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Container(height: 1, color: LightPageColors.border),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Total crédité',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11.5,
-                      color: LightPageColors.muted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    '$total tickets',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: LightPageColors.orange,
-                    ),
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    'Montant débité',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11.5,
-                      color: LightPageColors.muted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    '${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} FCFA',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: LightPageColors.text,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _paymentMethod(Map<String, dynamic> m, bool selected, int i) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => setState(() => selectedPayment = i),
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: selected
-                ? LightPageColors.orangeLight.withValues(alpha: 0.7)
-                : Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: selected
-                  ? LightPageColors.orange.withValues(alpha: 0.5)
-                  : LightPageColors.border,
-              width: 1.5,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: m['bgColor'] as Color,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(
-                  m['icon'] as IconData,
-                  color: m['color'] as Color,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      m['name'] as String,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: LightPageColors.text,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      m['subtitle'] as String,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11,
-                        color: LightPageColors.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: selected ? LightPageColors.orange : Colors.white,
-                  border: Border.all(
-                    color: selected
-                        ? LightPageColors.orange
-                        : LightPageColors.border,
-                    width: 2,
-                  ),
-                ),
-                child: selected
-                    ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
-                    : null,
-              ),
-            ],
+  Widget _row(String label, String value, {bool emphasize = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 12.5)),
+        Text(
+          value,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: emphasize ? 16 : 12.5,
+            fontWeight: FontWeight.w800,
+            color: emphasize ? LightPageColors.orange : LightPageColors.text,
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSecurityNote() {
-    return LightHintBox(
-      icon: Icons.verified_user_outlined,
-      text:
-          'Votre paiement est sécurisé par le protocole 3-D Secure. Aucune information bancaire n\'est stockée sur nos serveurs.',
-    );
-  }
-
-  Widget _buildTotalBottom() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF1B2A6B).withValues(alpha: 0.04),
-            const Color(0xFFF07840).withValues(alpha: 0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFF07840).withValues(alpha: 0.25),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFF1B2A6B),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: const Icon(
-              Icons.bolt_rounded,
-              color: Color(0xFFF07840),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Paiement instantané',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: LightPageColors.text,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  'Tickets crédités immédiatement après validation',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10.5,
-                    color: LightPageColors.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }

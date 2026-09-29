@@ -1,218 +1,183 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/utils/toast_helper.dart';
-import '../../../../shared/widgets/kaba_button.dart';
-import '../../../../shared/widgets/kaba_input.dart';
-import '../../../../shared/widgets/auth_scaffold.dart';
+import '../../../../core/network/session_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/utils/toast_helper.dart';
+import '../../../../shared/models/api_models.dart';
+import '../../../../shared/widgets/auth_scaffold.dart';
+import '../../../../shared/widgets/kaba_bottom_sheet_modal.dart';
+import '../../../../shared/widgets/kaba_button.dart';
+import '../../../../shared/widgets/kaba_input.dart';
+import '../../../auth/data/signup_draft.dart';
 
-class CampusSelectionPage extends StatefulWidget {
+class CampusSelectionPage extends ConsumerStatefulWidget {
   const CampusSelectionPage({super.key});
 
   @override
-  State<CampusSelectionPage> createState() => _CampusSelectionPageState();
+  ConsumerState<CampusSelectionPage> createState() =>
+      _CampusSelectionPageState();
 }
 
-class _CampusSelectionPageState extends State<CampusSelectionPage> {
-  final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
-  String? _selectedCampus;
-  bool _showCampusPicker = false;
+class _CampusSelectionPageState extends ConsumerState<CampusSelectionPage> {
+  String? _selectedCampusId;
 
-  final List<String> _campuses = [
-    'Université Catholique de l\'Afrique de l\'Ouest (UCAO)',
-    'Université de Lomé (UL)',
-    'Université de Kara (UK)',
-    'École Supérieure d\'Administration (ESA)',
-    'Institut Universitaire de Technologie (IUT)',
-    'Faculté des Sciences - UL',
-  ];
+  Future<void> _openPicker(List<CampusModel> campuses) async {
+    final chosen = await KabaBottomSheetModal.show<CampusModel>(
+      context: context,
+      title: 'Choisir ton campus',
+      forceDark: true,
+      child: Builder(
+        builder: (sheetContext) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final campus in campuses)
+                _CampusTile(
+                  campus: campus,
+                  selected: _selectedCampusId == campus.id,
+                  onTap: () => Navigator.of(sheetContext).pop(campus),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+    if (chosen != null && mounted) {
+      setState(() => _selectedCampusId = chosen.id);
+    }
+  }
 
-  @override
-  void dispose() {
-    _passwordController.dispose();
-    super.dispose();
+  void _continue(CampusModel? selected) {
+    if (selected == null) {
+      ToastHelper.showError('Veuillez sélectionner un campus');
+      return;
+    }
+    ref
+        .read(signupDraftProvider.notifier)
+        .setCampus(id: selected.id, name: selected.name);
+    context.go('/auth/referral');
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        AuthScaffold(
-          currentStep: 4,
-          totalSteps: 5,
-          heroIcon: Icons.school_outlined,
-          heroTitle: 'Campus & sécurité',
-          heroSubtitle:
-              'Choisis ton université et crée un mot de passe sécurisé.',
-          onBack: () => context.pop(),
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _showCampusPicker = true;
-                  });
-                },
-                child: KabaSelect(
-                  label: 'Université / Campus',
-                  value: _selectedCampus ?? '',
-                  placeholder: 'Sélectionner — UCAO, UL…',
-                  isSelected: _selectedCampus != null,
-                ),
-              ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.05, end: 0),
-              const SizedBox(height: 15),
-              KabaInput(
-                label: 'Mot de passe',
-                hintText: '••••••••',
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                prefixIcon: const Icon(Icons.lock_outline_rounded, size: 16),
-                suffixIcon: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _obscurePassword = !_obscurePassword;
-                    });
-                  },
-                  child: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                    size: 16,
-                  ),
-                ),
-              ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.05, end: 0),
-              const Spacer(),
-              KabaButton(
-                text: 'Continuer',
-                onPressed: () {
-                  if (_selectedCampus == null) {
-                    ToastHelper.showError('Veuillez sélectionner un campus');
-                    return;
-                  }
-                  if (_passwordController.text.length < 6) {
-                    ToastHelper.showError(
-                      'Le mot de passe doit contenir au moins 6 caractères',
-                    );
-                    return;
-                  }
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    context.go('/auth/referral');
-                  });
-                },
-                trailingIcon: const Icon(Icons.arrow_forward_rounded, size: 16),
-              ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1, end: 0),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-        if (_showCampusPicker) _buildCampusPicker(),
-      ],
+    final campusesAsync = ref.watch(campusesListProvider);
+    final campuses = campusesAsync.valueOrNull ?? const <CampusModel>[];
+    final selected = campuses
+        .where((campus) => campus.id == _selectedCampusId)
+        .firstOrNull;
+
+    return AuthScaffold(
+      currentStep: 4,
+      totalSteps: 5,
+      heroIcon: Icons.school_outlined,
+      heroTitle: 'Ton campus',
+      heroSubtitle:
+          'Choisis ton université — on t’affiche ensuite les cantines de ton campus.',
+      onBack: () => context.pop(),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: campuses.isEmpty ? null : () => _openPicker(campuses),
+            child: KabaSelect(
+              label: 'Université / Campus',
+              value: selected?.name ?? '',
+              placeholder: campusesAsync.isLoading
+                  ? 'Chargement des campus…'
+                  : campusesAsync.hasError
+                  ? 'Impossible de charger — réessaie'
+                  : 'Sélectionner — UCAO, UL…',
+              isSelected: selected != null,
+            ),
+          ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.05, end: 0),
+          if (campusesAsync.hasError) ...[
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => ref.invalidate(campusesListProvider),
+              child: const Text('Réessayer'),
+            ),
+          ],
+        ],
+      ),
+      footer: KabaButton(
+        text: 'Continuer',
+        onPressed: () => _continue(selected),
+        trailingIcon: const Icon(Icons.arrow_forward_rounded, size: 16),
+      ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1, end: 0),
     );
   }
+}
 
-  Widget _buildCampusPicker() {
+class _CampusTile extends StatelessWidget {
+  final CampusModel campus;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CampusTile({
+    required this.campus,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = [
+      campus.institution,
+      campus.city,
+    ].where((part) => part.isNotEmpty).join(' · ');
+
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _showCampusPicker = false;
-        });
-      },
+      onTap: onTap,
       child: Container(
-        color: Colors.black54,
-        child: Center(
-          child: GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.all(24),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.cardDark,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.line),
-              ),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected
+                ? AppColors.accent.withValues(alpha: 0.5)
+                : AppColors.line,
+          ),
+          color: selected
+              ? AppColors.accent.withValues(alpha: 0.1)
+              : AppColors.field,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.school_outlined,
+              color: selected ? AppColors.accent : AppColors.muted,
+              size: 18,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      'Choisir ton campus',
-                      style: AppTextStyles.sectionTitle,
+                  Text(
+                    campus.name,
+                    style: AppTextStyles.inputText.copyWith(
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  ..._campuses.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final campus = entry.value;
-                    final isSelected = _selectedCampus == campus;
-                    return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedCampus = campus;
-                              _showCampusPicker = false;
-                            });
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 14,
-                            ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isSelected
-                                    ? AppColors.accent.withValues(alpha: 0.5)
-                                    : AppColors.line,
-                              ),
-                              color: isSelected
-                                  ? AppColors.accent.withValues(alpha: 0.1)
-                                  : AppColors.field,
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.school_outlined,
-                                  color: isSelected
-                                      ? AppColors.accent
-                                      : AppColors.muted,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    campus,
-                                    style: AppTextStyles.inputText.copyWith(
-                                      fontWeight: isSelected
-                                          ? FontWeight.w600
-                                          : FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                if (isSelected)
-                                  const Icon(
-                                    Icons.check_circle_rounded,
-                                    color: AppColors.accent,
-                                    size: 20,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        )
-                        .animate()
-                        .fadeIn(delay: (100 + index * 50).ms)
-                        .slideX(begin: 0.05, end: 0);
-                  }),
+                  if (subtitle.isNotEmpty)
+                    Text(
+                      subtitle,
+                      style: AppTextStyles.footLink.copyWith(fontSize: 11),
+                    ),
                 ],
               ),
             ),
-          ),
+            if (selected)
+              const Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.accent,
+                size: 20,
+              ),
+          ],
         ),
       ),
     );

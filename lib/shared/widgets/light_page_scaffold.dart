@@ -1,24 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class LightPageColors {
   LightPageColors._();
-  static const Color bg = Color(0xFFF7F8FC);
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color text = Color(0xFF0D1438);
-  static const Color text2 = Color(0xFF3D4A6B);
-  static const Color muted = Color(0xFF8896B3);
-  static const Color border = Color(0xFFE4E9F4);
-  static const Color indigo = Color(0xFF1B2A6B);
-  static const Color indigoLight = Color(0xFFEEF1FA);
+
+  static Color bg = const Color(0xFF0D1438);
+  static Color white = const Color(0xFF111A45);
+  static Color text = const Color(0xFFFFFFFF);
+  static Color text2 = const Color(0xB3FFFFFF);
+  static Color muted = const Color(0x80FFFFFF);
+  static Color border = const Color(0x1FFFFFFF);
+  static Color indigo = const Color(0xFF9BB0FF);
+  static Color indigoLight = const Color(0xFF1B2A6B);
   static const Color orange = Color(0xFFF07840);
-  static const Color orangeLight = Color(0xFFFEF0E9);
+  static Color orangeLight = const Color(0x26F07840);
   static const Color warning = Color(0xFFF59E0B);
-  static const Color warningLight = Color(0xFFFFF4D6);
+  static Color warningLight = const Color(0x26F59E0B);
   static const Color green = Color(0xFF16A34A);
-  static const Color greenLight = Color(0xFFF0FDF4);
+  static Color greenLight = const Color(0x2616A34A);
   static const Color red = Color(0xFFDC2626);
-  static const Color redLight = Color(0xFFFEF2F2);
+  static Color redLight = const Color(0x26DC2626);
+
+  static void apply(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    bg = dark ? const Color(0xFF0D1438) : const Color(0xFFF4F6FF);
+    white = dark ? const Color(0xFF111A45) : const Color(0xFFFFFFFF);
+    text = dark ? const Color(0xFFFFFFFF) : const Color(0xFF0D1438);
+    text2 = dark ? const Color(0xB3FFFFFF) : const Color(0xFF5C6584);
+    muted = dark ? const Color(0x80FFFFFF) : const Color(0xFF8B93A7);
+    border = dark ? const Color(0x1FFFFFFF) : const Color(0x1A1B2A6B);
+    indigo = dark ? const Color(0xFF9BB0FF) : const Color(0xFF1B2A6B);
+    indigoLight = dark ? const Color(0xFF1B2A6B) : const Color(0xFFE8ECFF);
+    orangeLight = dark ? const Color(0x26F07840) : const Color(0xFFFFE8DC);
+    warningLight = dark ? const Color(0x26F59E0B) : const Color(0xFFFFF4DE);
+    greenLight = dark ? const Color(0x2616A34A) : const Color(0xFFDCFCE7);
+    redLight = dark ? const Color(0x26DC2626) : const Color(0xFFFEE2E2);
+  }
 }
 
 class LightPageScaffold extends StatelessWidget {
@@ -48,14 +66,16 @@ class LightPageScaffold extends StatelessWidget {
     return Scaffold(
       backgroundColor: backgroundColor ?? LightPageColors.bg,
       extendBody: extendBody,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(52),
-        child: LightTopNav(
-          title: title,
-          showBackButton: showBackButton,
-          actions: actions,
-          onBack: onBack,
-        ),
+      appBar: AppBar(
+        title: Text(title),
+        automaticallyImplyLeading: showBackButton,
+        leading: showBackButton && onBack != null
+            ? IconButton(
+                onPressed: onBack,
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+              )
+            : null,
+        actions: actions,
       ),
       body: body,
       bottomNavigationBar: bottomNavigationBar,
@@ -80,7 +100,7 @@ class LightTopNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: LightPageColors.white,
         border: Border(
           bottom: BorderSide(color: LightPageColors.border, width: 1),
@@ -129,7 +149,16 @@ class LightBackButton extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap ?? () => Navigator.of(context).pop(),
+        onTap:
+            onTap ??
+            () {
+              final router = GoRouter.of(context);
+              if (router.canPop()) {
+                router.pop();
+              } else {
+                router.go('/home');
+              }
+            },
         borderRadius: BorderRadius.circular(10),
         child: Container(
           width: 34,
@@ -139,7 +168,7 @@ class LightBackButton extends StatelessWidget {
             border: Border.all(color: LightPageColors.border, width: 1),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.arrow_back_ios_new_rounded,
             size: 15,
             color: LightPageColors.text2,
@@ -167,52 +196,47 @@ class LightTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: backgroundColor ?? LightPageColors.white,
-        border: const Border(
-          bottom: BorderSide(color: LightPageColors.border, width: 1),
-        ),
+        color: backgroundColor ?? LightPageColors.indigoLight,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: LightPageColors.border),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: List.generate(tabs.length, (index) {
-            final isSelected = index == selectedIndex;
-            return Padding(
-              padding: EdgeInsets.only(right: index == tabs.length - 1 ? 0 : 8),
-              child: InkWell(
-                onTap: onTap != null ? () => onTap!(index) : null,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: isSelected
-                        ? Border(
-                            bottom: BorderSide(
-                              color: LightPageColors.orange,
-                              width: 3,
-                            ),
-                          )
-                        : null,
-                  ),
+      child: Row(
+        children: List.generate(tabs.length, (index) {
+          final isSelected = index == selectedIndex;
+          return Expanded(
+            child: GestureDetector(
+              onTap: onTap != null ? () => onTap!(index) : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? LightPageColors.orange
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                alignment: Alignment.center,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
                   child: Text(
                     tabs[index],
                     maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected
-                          ? LightPageColors.indigo
-                          : LightPageColors.muted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: isSelected ? Colors.white : LightPageColors.muted,
                     ),
                   ),
                 ),
               ),
-            );
-          }),
-        ),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -386,7 +410,7 @@ class LightFieldRow extends StatelessWidget {
           Row(
             children: [
               if (isLocked) ...[
-                const Icon(
+                Icon(
                   Icons.lock_outline_rounded,
                   size: 11,
                   color: LightPageColors.muted,

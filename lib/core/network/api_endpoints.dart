@@ -17,6 +17,8 @@ class ApiEndpoints {
 
   static const String campuses = '/campuses';
   static String campusById(String id) => '/campuses/$id';
+  static String campusFaculties(String campusId) =>
+      '/campuses/$campusId/faculties';
 
   static const String catalogMenuItems = '/catalog/menu-items';
   static String catalogMenuItemById(String id) => '/catalog/menu-items/$id';
@@ -27,6 +29,11 @@ class ApiEndpoints {
 
   static const String orders = '/orders';
   static String orderById(String id) => '/orders/$id';
+  static String orderCancel(String id) => '/orders/$id/cancel';
+  static String orderReceive(String id) => '/orders/$id/receive';
+  static String orderDispute(String id) => '/orders/$id/dispute';
+
+  static const String usersMeAvatar = '/users/me/avatar';
 
   static const String walletSend = '/wallet/send';
 
@@ -35,12 +42,17 @@ class ApiEndpoints {
 
   static const String ambassadors = '/ambassadors';
   static const String ambassadorsMe = '/ambassadors/me';
+  static const String ambassadorsApply = '/ambassadors/apply';
+  static const String ambassadorsSchoolCard = '/ambassadors/school-card';
   static String ambassadorById(String id) => '/ambassadors/$id';
 
   static const String payments = '/payments';
+  static const String paymentsPreview = '/payments/preview';
   static const String paymentsIntent = '/payments/intent';
   static String paymentInitiate(String id) => '/payments/$id/initiate';
   static String paymentById(String id) => '/payments/$id';
+
+  static const String reviews = '/reviews';
 
   static const String notifications = '/notifications';
   static String notificationById(String id) => '/notifications/$id';

@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/network/repositories.dart';
+import '../../../../core/network/session_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/theme/app_icons.dart';
+import '../../../../core/utils/api_error.dart';
+import '../../../../core/utils/kaba_snack.dart';
 import '../../../../shared/widgets/kaba_card.dart';
-import '../../../../shared/widgets/kaba_background.dart';
 import '../../../../shared/widgets/kaba_input.dart';
 import '../../../../shared/widgets/kaba_bottom_sheet_modal.dart';
+import '../../../../shared/widgets/kaba_premium.dart';
+import '../../../../shared/widgets/light_page_scaffold.dart';
 
 class HelpSupportPage extends StatefulWidget {
   const HelpSupportPage({super.key});
@@ -155,37 +160,22 @@ class _HelpSupportPageState extends State<HelpSupportPage>
   Widget build(BuildContext context) {
     final filteredFaq = _filterFaq();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Centre d\'aide'),
-        elevation: 0,
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-      ),
-      extendBodyBehindAppBar: true,
-      body: KabaBackground(
-        child: SafeArea(
-          child: Column(
+    return LightPageScaffold(
+      title: 'Centre d\'aide',
+      body: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                child: KabaInput(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: KabaSearchField(
                   controller: _searchController,
-                  hintText: 'Rechercher une question...',
-                  prefixIcon: const Icon(
-                    AppIcons.search,
-                    color: AppColors.grey,
-                  ),
+                  hintText: 'Rechercher une question…',
                 ).animate().fadeIn(delay: 100.ms),
               ),
               TabBar(
                 controller: _tabController,
-                indicatorColor: AppColors.primary,
-                labelColor: AppColors.primary,
-                unselectedLabelColor: AppColors.grey,
+                indicatorColor: AppColors.accent,
+                labelColor: AppColors.accent,
+                unselectedLabelColor: LightPageColors.muted,
                 labelStyle: AppTextStyles.bodyLarge.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -590,20 +580,18 @@ class _HelpSupportPageState extends State<HelpSupportPage>
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 }
 
-class _ReportIssueForm extends StatefulWidget {
+class _ReportIssueForm extends ConsumerStatefulWidget {
   const _ReportIssueForm();
 
   @override
-  State<_ReportIssueForm> createState() => _ReportIssueFormState();
+  ConsumerState<_ReportIssueForm> createState() => _ReportIssueFormState();
 }
 
-class _ReportIssueFormState extends State<_ReportIssueForm> {
+class _ReportIssueFormState extends ConsumerState<_ReportIssueForm> {
   final TextEditingController _descriptionController = TextEditingController();
   String? _selectedIssue;
   String? _selectedOrder;
@@ -615,12 +603,6 @@ class _ReportIssueFormState extends State<_ReportIssueForm> {
     'Retard de livraison',
     'Problème de qualité',
     'Autre',
-  ];
-
-  static const List<String> _dummyOrders = [
-    'Commande #1234 - Brochettes + riz',
-    'Commande #5678 - Café + croissant',
-    'Commande #9012 - Burger + frites',
   ];
 
   @override
@@ -669,12 +651,16 @@ class _ReportIssueFormState extends State<_ReportIssueForm> {
                 ),
               ),
               isExpanded: true,
-              items: _dummyOrders.map((order) {
-                return DropdownMenuItem(
-                  value: order,
-                  child: Text(order, style: AppTextStyles.bodyMedium),
-                );
-              }).toList(),
+              items: (ref.watch(myOrdersProvider).valueOrNull ?? const [])
+                  .map((order) {
+                    final label =
+                        '${order.vendorName} · ${order.totalTickets} tickets';
+                    return DropdownMenuItem(
+                      value: order.id,
+                      child: Text(label, style: AppTextStyles.bodyMedium),
+                    );
+                  })
+                  .toList(),
               onChanged: (value) {
                 setState(() {
                   _selectedOrder = value;
@@ -744,15 +730,25 @@ class _ReportIssueFormState extends State<_ReportIssueForm> {
           width: double.infinity,
           child: ElevatedButton(
             onPressed: _selectedOrder != null && _selectedIssue != null
-                ? () {
-                    // TODO: Implement submit logic
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Problème signalé avec succès !'),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
+                ? () async {
+                    try {
+                      await ref.read(orderRepositoryProvider).createDispute(
+                            orderId: _selectedOrder!,
+                            type: _selectedIssue!,
+                            description: _descriptionController.text.trim(),
+                          );
+                      if (!context.mounted) return;
+                      Navigator.pop(context);
+                      showKabaSnack(context, 'Litige envoyé');
+                    } catch (error) {
+                      if (context.mounted) {
+                        showKabaSnack(
+                          context,
+                          apiErrorMessage(error),
+                          error: true,
+                        );
+                      }
+                    }
                   }
                 : null,
             style: ElevatedButton.styleFrom(

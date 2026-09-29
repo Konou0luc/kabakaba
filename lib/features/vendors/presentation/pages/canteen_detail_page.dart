@@ -1,709 +1,451 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/network/repositories.dart';
+import '../../../../core/network/session_providers.dart';
+import '../../../../core/utils/ticket_format.dart';
+import '../../../../core/utils/api_error.dart';
+import '../../../../core/utils/kaba_snack.dart';
+import '../../../../features/cart/data/cart_provider.dart';
+import '../../../../shared/models/api_models.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/widgets/kaba_premium.dart';
 import '../../../../shared/widgets/light_page_scaffold.dart';
+import '../../../../shared/widgets/remote_photo.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class CanteenDetailPage extends StatefulWidget {
-  const CanteenDetailPage({super.key});
+class CanteenDetailPage extends ConsumerStatefulWidget {
+  final String? vendorId;
+
+  const CanteenDetailPage({super.key, this.vendorId});
 
   @override
-  State<CanteenDetailPage> createState() => _CanteenDetailPageState();
+  ConsumerState<CanteenDetailPage> createState() => _CanteenDetailPageState();
 }
 
-class _CanteenDetailPageState extends State<CanteenDetailPage>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
   int _tab = 0;
-  bool _isFavorite = false;
+  String? _composeItemId;
+  final Map<String, int> _componentQty = {};
 
-  final int _baseQty = 1;
-  int _eggQty = 0;
-  int _sausageQty = 0;
-  int _fishQty = 0;
-  int _chickenQty = 0;
-
-  int get _customTotal =>
-      (_baseQty * 500) +
-      (_eggQty * 150) +
-      (_sausageQty * 200) +
-      (_fishQty * 500) +
-      (_chickenQty * 400);
-
-  final List<Map<String, dynamic>> fixedMenus = [
-    {
-      'name': 'Menu étudiant express',
-      'desc': 'Riz + sauce tomate + 1 œuf + boisson',
-      'price': 1500,
-      'emoji': '🍛',
-      'tag': '🎓 Populaire',
-      'prep': '10 min',
-      'rating': 4.7,
-    },
-    {
-      'name': 'Plat du jour',
-      'desc': 'Fufu + sauce arachide + viande + alloco',
-      'price': 2000,
-      'emoji': '🥘',
-      'tag': '🔥 Recommandé',
-      'prep': '20 min',
-      'rating': 4.9,
-    },
-    {
-      'name': 'Déjeuner Healthy',
-      'desc': 'Salade poulet + avocat + jus d\'orange',
-      'price': 2500,
-      'emoji': '🥗',
-      'tag': '💚 Healthy',
-      'prep': '12 min',
-      'rating': 4.6,
-    },
-    {
-      'name': 'Burger Duo',
-      'desc': '2 burgers poulet + frites + 2 sodas',
-      'price': 3500,
-      'emoji': '🍔',
-      'tag': '⚡ Rapide',
-      'prep': '15 min',
-      'rating': 4.5,
-    },
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(
-      () => setState(() => _tab = _tabController.index),
-    );
+  List<MenuItemModel> get _menu {
+    final id = widget.vendorId;
+    if (id == null) return const [];
+    return ref.watch(vendorMenuProvider(id)).valueOrNull ?? const [];
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  List<MenuItemModel> get _composeBases {
+    final custom = _menu.where((item) => item.isCustomizable).toList();
+    return custom.isNotEmpty
+        ? custom
+        : _menu.where((item) => item.isAvailable).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: LightPageColors.bg,
-      extendBodyBehindAppBar: true,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(52),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Row(
-              children: [
-                LightBackButton(onTap: () => context.pop()),
-                const Spacer(),
-                LightIconButton(
-                  icon: _isFavorite
-                      ? Icons.favorite_rounded
-                      : Icons.favorite_border_rounded,
-                  color: _isFavorite ? LightPageColors.red : null,
-                  bgColor: LightPageColors.white.withValues(alpha: 0.92),
-                  onTap: () => setState(() => _isFavorite = !_isFavorite),
-                ),
-                const SizedBox(width: 8),
-                LightIconButton(
-                  icon: Icons.share_outlined,
-                  bgColor: LightPageColors.white.withValues(alpha: 0.92),
-                  onTap: () {},
-                ),
-              ],
-            ),
-          ),
+    final id = widget.vendorId;
+    if (id == null || id.isEmpty) {
+      return LightPageScaffold(
+        title: 'Cantine',
+        body: const KabaEmptyState(
+          icon: Icons.storefront_rounded,
+          title: 'Cantine introuvable',
+          subtitle: 'Reviens à la liste pour en choisir une.',
+        ),
+      );
+    }
+
+    final vendorAsync = ref.watch(vendorDetailProvider(id));
+    final cartCount = ref.watch(cartProvider).itemCount;
+
+    return vendorAsync.when(
+      loading: () => const LightPageScaffold(
+        title: 'Cantine',
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, _) => LightPageScaffold(
+        title: 'Cantine',
+        body: KabaEmptyState(
+          icon: Icons.wifi_off_rounded,
+          title: 'Impossible de charger',
+          subtitle: apiErrorMessage(error),
         ),
       ),
-      bottomNavigationBar: (_customTotal > 0 || _tab == 1)
-          ? _buildStickyBottomBar()
-          : null,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      data: (vendor) => LightPageScaffold(
+        title: vendor.canteenName,
+        bottomNavigationBar: cartCount > 0 || _tab != 2
+            ? _buildStickyBottomBar()
+            : null,
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
           children: [
-            _buildCover(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: _buildCanteenInfo(),
-            ),
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildQuickActions(),
+            _buildCover(vendor)
+                .animate()
+                .fadeIn(duration: 280.ms)
+                .slideY(begin: 0.04, duration: 320.ms),
+            const SizedBox(height: 16),
+            _buildCanteenInfo(vendor),
+            const SizedBox(height: 18),
+            LightTabs(
+              tabs: const ['Menus', 'Composer', 'Avis'],
+              selectedIndex: _tab,
+              onTap: (i) => setState(() => _tab = i),
             ),
             const SizedBox(height: 18),
-            _buildTabs(),
             if (_tab == 0)
-              _buildCustomizeTab()
-            else if (_tab == 1)
               _buildMenusTab()
+            else if (_tab == 1)
+              _buildCustomizeTab()
             else
-              _buildReviewsTab(),
+              _buildReviewsTab(vendor),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCover() {
-    return Container(
-      height: 220,
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFF07840), Color(0xFFFFB88C), Color(0xFFFFE5D0)],
+  Widget _buildCover(VendorModel vendor) {
+    final image = vendor.bannerUrl ?? vendor.logoUrl;
+    final open = vendor.isOpen;
+    final desc = vendor.description?.trim();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: SizedBox(
+        height: 220,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            RemotePhoto(
+              url: image,
+              width: double.infinity,
+              height: 220,
+              fallback: ColoredBox(
+                color: const Color(0xFF1B2A6B),
+                child: Icon(
+                  Icons.restaurant_rounded,
+                  color: AppColors.accent.withValues(alpha: 0.85),
+                  size: 52,
+                ),
+              ),
+            ),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x33000000),
+                    Color(0x14000000),
+                    Color(0xE6000000),
+                  ],
+                  stops: [0, 0.42, 1],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 14,
+              top: 14,
+              child: KabaStatusPill(
+                label: open ? 'Ouverte' : 'Fermée',
+                color: open ? AppColors.success : const Color(0xE6000000),
+                inverted: true,
+              ),
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    vendor.canteenName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                      letterSpacing: -0.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                  if (desc != null && desc.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      desc,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                        color: Colors.white.withValues(alpha: 0.78),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -50,
-            right: -40,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -40,
-            left: -30,
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(height: 40),
-                Container(
-                  width: 86,
-                  height: 86,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                        spreadRadius: -4,
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text('🍲', style: TextStyle(fontSize: 44)),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: LightPageColors.green,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: LightPageColors.green.withValues(alpha: 0.35),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Ouvert · 07h30 - 17h00',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
 
-  Widget _buildCanteenInfo() {
+  Widget _buildCanteenInfo(VendorModel vendor) {
+    final available = _menu.where((item) => item.isAvailable).length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        const KabaSectionKicker('Cantine du campus'),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            Expanded(
-              child: Text(
-                'Chez Mama Afi',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: LightPageColors.text,
-                ),
-              ),
+            _MetaChip(
+              icon: vendor.isOpen
+                  ? Icons.schedule_rounded
+                  : Icons.lock_clock_rounded,
+              label: vendor.isOpen ? 'Service ouvert' : 'Service fermé',
+              color: vendor.isOpen ? AppColors.success : LightPageColors.muted,
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: LightPageColors.warningLight,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.star_rounded,
-                    size: 13,
-                    color: LightPageColors.warning,
-                  ),
-                  const SizedBox(width: 3),
-                  Text(
-                    '4.8 · 327 avis',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      color: LightPageColors.warning,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Spécialités togolaises · Cuisine traditionnelle',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: LightPageColors.muted,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Icon(
-              Icons.location_on_outlined,
-              size: 13,
-              color: LightPageColors.indigo,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              'UCAO · Bâtiment C · 50 m',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: LightPageColors.text2,
-              ),
-            ),
-            const Spacer(),
-            Icon(
-              Icons.access_time_rounded,
-              size: 13,
-              color: LightPageColors.indigo,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              '15-25 min',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
+            if (_menu.isNotEmpty)
+              _MetaChip(
+                icon: Icons.restaurant_menu_rounded,
+                label: available == 1 ? '1 plat' : '$available plats',
                 color: LightPageColors.indigo,
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            Icon(
-              Icons.delivery_dining_rounded,
-              size: 13,
-              color: LightPageColors.muted,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              'Livraison gratuite dès 3 000 FCFA',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: LightPageColors.muted,
+            if (_composeBases.isNotEmpty)
+              _MetaChip(
+                icon: Icons.tune_rounded,
+                label: 'Composition possible',
+                color: LightPageColors.orange,
               ),
-            ),
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildQuickActions() {
-    final actions = [
-      {'icon': Icons.info_outline_rounded, 'label': 'Infos'},
-      {'icon': Icons.call_outlined, 'label': 'Appeler'},
-      {'icon': Icons.directions_outlined, 'label': 'Itinéraire'},
-      {'icon': Icons.flag_outlined, 'label': 'Signaler'},
-    ];
-    return Row(
-      children: [
-        for (int i = 0; i < actions.length; i++) ...[
-          Expanded(
-            child: LightCard(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-              onTap: () {},
-              borderRadius: 12,
-              boxShadow: [
-                BoxShadow(
-                  color: LightPageColors.indigo.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-              child: Column(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: i == 0
-                          ? LightPageColors.indigoLight
-                          : i == 1
-                          ? LightPageColors.greenLight
-                          : i == 2
-                          ? LightPageColors.orangeLight
-                          : LightPageColors.redLight,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      actions[i]['icon'] as IconData,
-                      size: 16,
-                      color: i == 0
-                          ? LightPageColors.indigo
-                          : i == 1
-                          ? LightPageColors.green
-                          : i == 2
-                          ? LightPageColors.orange
-                          : LightPageColors.red,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    actions[i]['label'] as String,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: LightPageColors.text2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (i != 3) const SizedBox(width: 8),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildTabs() {
-    final tabs = ['Composer mon plat', 'Menus prêts', 'Avis'];
-    return Container(
-      decoration: const BoxDecoration(
-        color: LightPageColors.white,
-        border: Border(
-          bottom: BorderSide(color: LightPageColors.border, width: 1),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: List.generate(tabs.length, (index) {
-          final isSelected = _tab == index;
-          return Expanded(
-            child: InkWell(
-              onTap: () => _tabController.animateTo(index),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 13),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  border: isSelected
-                      ? Border(
-                          bottom: BorderSide(
-                            color: LightPageColors.orange,
-                            width: 3,
-                          ),
-                        )
-                      : null,
-                ),
-                child: Text(
-                  tabs[index],
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: isSelected
-                        ? LightPageColors.indigo
-                        : LightPageColors.muted,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
     );
   }
 
   Widget _buildCustomizeTab() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          LightHintBox(
-            icon: Icons.tips_and_updates_rounded,
-            text:
-                'Choisis ta base, ajoute tes accompagnements préférés, et compose ton plat idéal !',
+    final bases = _composeBases;
+    if (bases.isEmpty) {
+      return const KabaEmptyState(
+        icon: Icons.tune_rounded,
+        title: 'Rien à composer',
+        subtitle: 'Cette cantine n’a pas encore de plat à assembler.',
+      );
+    }
+    final selectedId = _composeItemId ?? bases.first.id;
+    final selected = bases.firstWhere(
+      (item) => item.id == selectedId,
+      orElse: () => bases.first,
+    );
+    final components =
+        ref.watch(menuComponentsProvider(selected.id)).valueOrNull ?? const [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const LightHintBox(
+          icon: Icons.tips_and_updates_rounded,
+          text:
+              'Choisis une base, ajoute les extras proposés par la cantine, puis ajoute au panier.',
+        ),
+        const SizedBox(height: 18),
+        const LightSectionTitle(
+          title: 'Choix de la base',
+          subtitle: 'Prix de base en tickets',
+        ),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.92,
           ),
-          const SizedBox(height: 18),
-          LightSectionTitle(
-            title: 'Choix de la base',
-            subtitle: 'Inclut sauce tomate ou arachide',
-          ),
-          const SizedBox(height: 4),
-          _buildBaseSelector(),
-          const SizedBox(height: 22),
-          LightSectionTitle(
-            title: 'Accompagnements',
-            subtitle: 'Ajoute ce qui te fait plaisir',
-          ),
-          const SizedBox(height: 4),
-          _buildQtyItem(
-            'Œuf (omelette ou au plat)',
-            150,
-            _eggQty,
-            Icons.breakfast_dining_rounded,
-            LightPageColors.warningLight,
-            LightPageColors.warning,
-            () => setState(() => _eggQty++),
-            _eggQty > 0 ? () => setState(() => _eggQty--) : null,
-          ),
-          const SizedBox(height: 8),
-          _buildQtyItem(
-            'Saucisse de bœuf',
-            200,
-            _sausageQty,
-            Icons.fastfood_rounded,
-            LightPageColors.redLight,
-            LightPageColors.red,
-            () => setState(() => _sausageQty++),
-            _sausageQty > 0 ? () => setState(() => _sausageQty--) : null,
-          ),
-          const SizedBox(height: 8),
-          _buildQtyItem(
-            'Poulet braisé (1 morceau)',
-            400,
-            _chickenQty,
-            Icons.ramen_dining_rounded,
-            LightPageColors.orangeLight,
-            LightPageColors.orange,
-            () => setState(() => _chickenQty++),
-            _chickenQty > 0 ? () => setState(() => _chickenQty--) : null,
-          ),
-          const SizedBox(height: 8),
-          _buildQtyItem(
-            'Poisson frais fumé',
-            500,
-            _fishQty,
-            Icons.set_meal_rounded,
-            LightPageColors.indigoLight,
-            LightPageColors.indigo,
-            () => setState(() => _fishQty++),
-            _fishQty > 0 ? () => setState(() => _fishQty--) : null,
-          ),
-          const SizedBox(height: 22),
-          LightSectionTitle(title: 'Sauces & extras'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final s in [
-                'Piment +50',
-                'Oignons +30',
-                'Citron +40',
-                'Alloco +300',
-                'Banane plantain +250',
-                'Avocat +200',
-              ])
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 7,
-                  ),
+          itemCount: bases.length,
+          itemBuilder: (context, i) {
+            final item = bases[i];
+            final selectedBase = item.id == selected.id;
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => setState(() {
+                  _composeItemId = item.id;
+                  _componentQty.clear();
+                }),
+                borderRadius: BorderRadius.circular(16),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
                   decoration: BoxDecoration(
-                    color: LightPageColors.white,
+                    color: selectedBase
+                        ? LightPageColors.orange.withValues(alpha: 0.08)
+                        : LightPageColors.white,
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: LightPageColors.border,
-                      width: 1.2,
+                      color: selectedBase
+                          ? LightPageColors.orange
+                          : LightPageColors.border,
+                      width: selectedBase ? 1.8 : 1,
                     ),
-                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(
-                    s,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: LightPageColors.text2,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(15),
+                          ),
+                          child: RemotePhoto(
+                            url: item.imageUrl,
+                            width: double.infinity,
+                            height: 88,
+                            fallback: ColoredBox(
+                              color: const Color(0xFF1B2A6B),
+                              child: Icon(
+                                Icons.restaurant_rounded,
+                                color: AppColors.accent.withValues(alpha: 0.85),
+                                size: 28,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                color: LightPageColors.text,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${formatTickets(item.priceTickets)} tickets',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: LightPageColors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-            ],
-          ),
-        ],
-      ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 22),
+        LightSectionTitle(
+          title: 'Accompagnements',
+          subtitle: components.isEmpty
+              ? 'Aucun extra publié pour cette base'
+              : 'Quantités limitées par la cantine',
+        ),
+        if (components.isEmpty)
+          Text(
+            'Tu peux commander cette base telle quelle.',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: LightPageColors.muted,
+            ),
+          )
+        else
+          ...components.map((component) {
+            final qty = _componentQty[component.id] ?? component.minQty;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _buildQtyItem(
+                component.name,
+                component.unitPriceTickets,
+                qty,
+                qty < component.maxQty
+                    ? () => setState(
+                          () => _componentQty[component.id] = qty + 1,
+                        )
+                    : () {},
+                qty > component.minQty
+                    ? () => setState(
+                          () => _componentQty[component.id] = qty - 1,
+                        )
+                    : null,
+              ),
+            );
+          }),
+        const SizedBox(height: 16),
+        LightButton(
+          text: 'Ajouter au panier',
+          icon: Icons.add_rounded,
+          onPressed: () => _addComposedItem(selected, components),
+        ),
+      ],
     );
   }
 
-  int _selectedBase = 0;
-  final _bases = const [
-    {'name': 'Riz blanc', 'emoji': '🍚', 'price': 500},
-    {'name': 'Fufu', 'emoji': '🫓', 'price': 450},
-    {'name': 'Attiéké', 'emoji': '🥘', 'price': 600},
-    {'name': 'Pâtes fraîches', 'emoji': '🍝', 'price': 550},
-  ];
-
-  Widget _buildBaseSelector() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 1.6,
-      ),
-      itemCount: _bases.length,
-      itemBuilder: (context, i) {
-        final b = _bases[i];
-        final selected = _selectedBase == i;
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => setState(() => _selectedBase = i),
-            borderRadius: BorderRadius.circular(14),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: selected
-                    ? LightPageColors.orange.withValues(alpha: 0.06)
-                    : LightPageColors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: selected
-                      ? LightPageColors.orange
-                      : LightPageColors.border,
-                  width: selected ? 1.8 : 1,
-                ),
-                boxShadow: selected
-                    ? [
-                        BoxShadow(
-                          color: LightPageColors.orange.withValues(alpha: 0.15),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? LightPageColors.orangeLight
-                          : LightPageColors.bg,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      b['emoji'] as String,
-                      style: const TextStyle(fontSize: 22),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          b['name'] as String,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: LightPageColors.text,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${b['price']} FCFA',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                            color: LightPageColors.orange,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+  void _addComposedItem(
+    MenuItemModel item,
+    List<MenuComponentModel> components,
+  ) {
+    final vendorId = widget.vendorId;
+    final vendor = vendorId == null
+        ? null
+        : ref.read(vendorDetailProvider(vendorId)).valueOrNull;
+    if (vendor == null) {
+      showKabaSnack(context, 'Cantine introuvable', error: true);
+      return;
+    }
+    final extras = [
+      for (final component in components)
+        if ((_componentQty[component.id] ?? component.minQty) > 0)
+          CartComponent(
+            componentId: component.id,
+            name: component.name,
+            unitPriceTickets: component.unitPriceTickets,
+            quantity: _componentQty[component.id] ?? component.minQty,
           ),
-        );
-      },
+    ];
+    final line = CartLine(
+      vendorId: vendor.id,
+      vendorName: vendor.canteenName,
+      menuItemId: item.id,
+      name: extras.isEmpty ? item.name : '${item.name} (composé)',
+      priceTickets: item.priceTickets,
+      quantity: 1,
+      imageUrl: item.imageUrl,
+      components: extras,
     );
+    final added = ref.read(cartProvider.notifier).add(line);
+    if (!added) {
+      ref.read(cartProvider.notifier).replaceWith(line);
+      showKabaSnack(context, 'Nouveau panier pour ${vendor.canteenName}');
+    } else {
+      showKabaSnack(context, '${item.name} ajouté');
+    }
   }
 
   Widget _buildQtyItem(
     String name,
     int price,
     int qty,
-    IconData icon,
-    Color bgIcon,
-    Color colorIcon,
     VoidCallback onInc,
     VoidCallback? onDec,
   ) {
@@ -716,10 +458,14 @@ class _CanteenDetailPageState extends State<CanteenDetailPage>
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: bgIcon,
+              color: LightPageColors.orangeLight,
               borderRadius: BorderRadius.circular(11),
             ),
-            child: Icon(icon, size: 18, color: colorIcon),
+            child: Icon(
+              Icons.restaurant_rounded,
+              size: 18,
+              color: LightPageColors.orange,
+            ),
           ),
           const SizedBox(width: 11),
           Expanded(
@@ -736,7 +482,7 @@ class _CanteenDetailPageState extends State<CanteenDetailPage>
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$price FCFA / unité',
+                  '+${formatTickets(price)} tickets / unité',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w600,
@@ -754,313 +500,113 @@ class _CanteenDetailPageState extends State<CanteenDetailPage>
   }
 
   Widget _buildMenusTab() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ...List.generate(fixedMenus.length, (i) {
-            final m = fixedMenus[i];
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: i == fixedMenus.length - 1 ? 0 : 12,
-              ),
-              child: _FixedMenuCard(m: m),
-            );
-          }),
-        ],
-      ),
+    final menus = _menu;
+    final loading = widget.vendorId != null &&
+        ref.watch(vendorMenuProvider(widget.vendorId!)).isLoading;
+    if (loading) {
+      return const Padding(
+        padding: EdgeInsets.all(40),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (menus.isEmpty) {
+      return const KabaEmptyState(
+        icon: Icons.restaurant_menu_rounded,
+        title: 'Menu encore vide',
+        subtitle: 'Aucun plat n’a été publié pour le moment.',
+      );
+    }
+    return Column(
+      children: [
+        ...List.generate(menus.length, (i) {
+          final item = menus[i];
+          return Padding(
+            padding: EdgeInsets.only(bottom: i == menus.length - 1 ? 0 : 12),
+            child: _FixedMenuCard(
+              item: item,
+              onTap: item.isAvailable
+                  ? () => context.push(
+                        '/menu-detail',
+                        extra: {
+                          'itemId': item.id,
+                          'vendorId': widget.vendorId,
+                        },
+                      )
+                  : null,
+            ),
+          );
+        }),
+      ],
     );
   }
 
-  Widget _buildReviewsTab() {
-    final reviews = [
-      {
-        'name': 'Kossi A.',
-        'avatar': '👨🏽',
-        'rating': 5,
-        'date': 'Il y a 2j',
-        'comment':
-            'Très bon accueil, le riz sauce arachide était délicieux et la portion généreuse. Je recommande !',
-        'like': 12,
-      },
-      {
-        'name': 'Ama S.',
-        'avatar': '👩🏾',
-        'rating': 4,
-        'date': 'Il y a 5j',
-        'comment':
-            'Livraison rapide (18 min). Le fufu était un peu sec mais la sauce était bonne. Je réessaierai.',
-        'like': 5,
-      },
-      {
-        'name': 'Yao M.',
-        'avatar': '🧑🏾',
-        'rating': 5,
-        'date': 'Il y a 1 sem',
-        'comment':
-            'Le meilleur poulet braisé du campus ! Mama Afi cuisine avec amour, ça se sent. 💯',
-        'like': 24,
-      },
-    ];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          LightCard(
-            padding: const EdgeInsets.all(16),
-            borderRadius: 16,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '4.8',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 36,
-                              fontWeight: FontWeight.w900,
-                              color: LightPageColors.text,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Text(
-                              '/ 5',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: LightPageColors.muted,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: List.generate(5, (i) {
-                          return Icon(
-                            Icons.star_rounded,
-                            size: 14,
-                            color: i < 4
-                                ? LightPageColors.warning
-                                : LightPageColors.warning.withValues(
-                                    alpha: 0.4,
-                                  ),
-                          );
-                        }),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Basé sur 327 avis',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: LightPageColors.muted,
-                        ),
-                      ),
-                    ],
-                  ),
+  Widget _buildReviewsTab(VendorModel vendor) {
+    final received = (ref.watch(myOrdersProvider).valueOrNull ?? const [])
+        .where(
+          (order) =>
+              order.vendorId == vendor.id &&
+              (order.status == OrderStatus.RECEIVED ||
+                  order.status == OrderStatus.AUTO_RECEIVED),
+        )
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LightCard(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: LightPageColors.indigoLight,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                Container(
-                  width: 100,
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Column(
-                    children: [
-                      for (int i = 5; i >= 1; i--) ...[
-                        Row(
-                          children: [
-                            Text(
-                              '$i',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: LightPageColors.muted,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Container(
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: LightPageColors.border,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                                child: FractionallySizedBox(
-                                  alignment: Alignment.centerLeft,
-                                  widthFactor: i == 5
-                                      ? 0.82
-                                      : i == 4
-                                      ? 0.12
-                                      : i == 3
-                                      ? 0.04
-                                      : 0.01,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: LightPageColors.warning,
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (i != 1) const SizedBox(height: 4),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          LightSectionTitle(title: 'Avis récents', action: 'Tous voir'),
-          const SizedBox(height: 6),
-          ...reviews.map(
-            (r) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: LightCard(
-                padding: const EdgeInsets.all(14),
-                borderRadius: 14,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: LightPageColors.indigoLight,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            r['avatar'] as String,
-                            style: const TextStyle(fontSize: 18),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                r['name'] as String,
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: LightPageColors.text,
-                                ),
-                              ),
-                              const SizedBox(height: 1),
-                              Text(
-                                r['date'] as String,
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: LightPageColors.muted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: List.generate(
-                            r['rating'] as int,
-                            (_) => const Icon(
-                              Icons.star_rounded,
-                              size: 11,
-                              color: LightPageColors.warning,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      r['comment'] as String,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
-                        color: LightPageColors.text2,
-                        height: 1.45,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: LightPageColors.indigoLight,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.thumb_up_alt_outlined,
-                                size: 11,
-                                color: LightPageColors.indigo,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${r['like']}',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: LightPageColors.indigo,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Icon(
-                          Icons.reply_outlined,
-                          size: 14,
-                          color: LightPageColors.muted,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Répondre',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: LightPageColors.muted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                child: Icon(
+                  Icons.lock_rounded,
+                  size: 18,
+                  color: LightPageColors.indigo,
                 ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Les avis restent internes : ils aident kabakaba et le vendeur, ils ne sont pas affichés aux autres étudiants.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    height: 1.45,
+                    fontWeight: FontWeight.w500,
+                    color: LightPageColors.text2,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 16),
+        if (received.isEmpty)
+          const KabaEmptyState(
+            icon: Icons.star_outline_rounded,
+            title: 'Pas encore d’avis',
+            subtitle:
+                'Tu pourras noter cette cantine après avoir retiré une commande.',
+          )
+        else
+          _LeaveReviewCard(order: received.first, vendorId: vendor.id),
+      ],
     );
   }
 
   Widget _buildStickyBottomBar() {
-    final hasItems = _customTotal > 0;
+    final cart = ref.watch(cartProvider);
+    final hasItems = cart.itemCount > 0;
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
         color: LightPageColors.white,
-        border: const Border(
+        border: Border(
           top: BorderSide(color: LightPageColors.border, width: 1),
         ),
         boxShadow: [
@@ -1086,7 +632,7 @@ class _CanteenDetailPageState extends State<CanteenDetailPage>
                     color: LightPageColors.indigoLight,
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.shopping_basket_rounded,
                     size: 22,
                     color: LightPageColors.indigo,
@@ -1109,7 +655,7 @@ class _CanteenDetailPageState extends State<CanteenDetailPage>
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        '${_baseQty + _eggQty + _sausageQty + _fishQty + _chickenQty}',
+                        '${cart.itemCount}',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w900,
@@ -1137,7 +683,9 @@ class _CanteenDetailPageState extends State<CanteenDetailPage>
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    hasItems ? '$_customTotal FCFA' : 'Choisis ton plat',
+                    hasItems
+                        ? '${formatTickets(cart.totalTickets)} tickets'
+                        : 'Choisis ton plat',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
@@ -1151,19 +699,56 @@ class _CanteenDetailPageState extends State<CanteenDetailPage>
             Expanded(
               flex: 2,
               child: LightButton(
-                text: hasItems ? 'Ajouter au panier' : 'Composer',
+                text: hasItems ? 'Voir le panier' : 'Composer',
                 icon: hasItems
-                    ? Icons.add_shopping_cart_rounded
+                    ? Icons.shopping_basket_rounded
                     : Icons.restaurant_menu_rounded,
                 onPressed: hasItems
-                    ? () {
-                        context.push('/cart');
-                      }
-                    : () => _tabController.animateTo(0),
+                    ? () => context.push('/cart')
+                    : () => setState(() => _tab = 1),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _MetaChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1239,177 +824,107 @@ class _QtyStepper extends StatelessWidget {
 }
 
 class _FixedMenuCard extends StatelessWidget {
-  final Map<String, dynamic> m;
+  final MenuItemModel item;
+  final VoidCallback? onTap;
 
-  const _FixedMenuCard({required this.m});
+  const _FixedMenuCard({required this.item, this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final desc = item.description?.trim();
+    final tag = item.category?.trim().isNotEmpty == true
+        ? item.category!.trim()
+        : (item.isAvailable ? 'Disponible' : 'Indisponible');
     return LightCard(
-      padding: const EdgeInsets.all(12),
-      borderRadius: 16,
-      onTap: () => context.push('/menu-detail'),
+      padding: const EdgeInsets.all(10),
+      borderRadius: 18,
+      onTap: onTap,
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              width: 100,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    LightPageColors.orange,
-                    LightPageColors.orange.withValues(alpha: 0.5),
-                  ],
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: RemotePhoto(
+                url: item.imageUrl,
+                width: 104,
+                height: 112,
+                radius: 14,
+                fallback: ColoredBox(
+                  color: const Color(0xFF1B2A6B),
+                  child: SizedBox(
+                    width: 104,
+                    height: 112,
+                    child: Icon(
+                      Icons.restaurant_rounded,
+                      color: AppColors.accent.withValues(alpha: 0.85),
+                      size: 32,
+                    ),
+                  ),
                 ),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    m['emoji'] as String,
-                    style: const TextStyle(fontSize: 42),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.92),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.access_time_rounded,
-                          size: 9,
-                          color: LightPageColors.text2,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          m['prep'] as String,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.w800,
-                            color: LightPageColors.text2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        m['name'] as String,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w800,
-                          color: LightPageColors.text,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2.5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: LightPageColors.orangeLight,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          m['tag'] as String,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.w800,
-                            color: LightPageColors.orange,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        m['desc'] as String,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w500,
-                          color: LightPageColors.muted,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: LightPageColors.text,
+                    ),
                   ),
+                  const SizedBox(height: 6),
+                  KabaStatusPill(
+                    label: tag,
+                    color: item.isAvailable
+                        ? LightPageColors.orange
+                        : LightPageColors.muted,
+                  ),
+                  if (desc != null && desc.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      desc,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: LightPageColors.muted,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
                   Row(
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            size: 12,
-                            color: LightPageColors.warning,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            '${m['rating']}',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: LightPageColors.text2,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
                       Text(
-                        '${m['price']} FCFA',
+                        '${formatTickets(item.priceTickets)} tickets',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 15,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w900,
                           color: LightPageColors.orange,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const Spacer(),
                       Container(
-                        width: 30,
-                        height: 30,
+                        width: 32,
+                        height: 32,
                         decoration: BoxDecoration(
-                          color: LightPageColors.orange,
+                          color: item.isAvailable
+                              ? LightPageColors.orange
+                              : LightPageColors.muted.withValues(alpha: 0.35),
                           borderRadius: BorderRadius.circular(10),
-                          boxShadow: [
-                            BoxShadow(
-                              color: LightPageColors.orange.withValues(
-                                alpha: 0.4,
-                              ),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
                         ),
-                        child: const Icon(
-                          Icons.add_rounded,
+                        child: Icon(
+                          item.isAvailable
+                              ? Icons.add_rounded
+                              : Icons.block_rounded,
                           size: 16,
                           color: Colors.white,
                         ),
@@ -1421,6 +936,106 @@ class _FixedMenuCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LeaveReviewCard extends ConsumerStatefulWidget {
+  final OrderModel order;
+  final String vendorId;
+
+  const _LeaveReviewCard({required this.order, required this.vendorId});
+
+  @override
+  ConsumerState<_LeaveReviewCard> createState() => _LeaveReviewCardState();
+}
+
+class _LeaveReviewCardState extends ConsumerState<_LeaveReviewCard> {
+  int _rating = 5;
+  final _comment = TextEditingController();
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _comment.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    setState(() => _sending = true);
+    try {
+      await ref.read(reviewRepositoryProvider).createReview(
+            orderId: widget.order.id,
+            vendorId: widget.vendorId,
+            rating: _rating,
+            comment: _comment.text.trim(),
+          );
+      if (!mounted) return;
+      showKabaSnack(context, 'Avis envoyé, merci.');
+      _comment.clear();
+    } catch (error) {
+      if (mounted) {
+        showKabaSnack(context, apiErrorMessage(error), error: true);
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LightCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Noter ta dernière commande',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: LightPageColors.text,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: List.generate(5, (i) {
+              final value = i + 1;
+              return IconButton(
+                onPressed: () => setState(() => _rating = value),
+                icon: Icon(
+                  value <= _rating
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
+                  color: LightPageColors.warning,
+                ),
+              );
+            }),
+          ),
+          TextField(
+            controller: _comment,
+            maxLines: 3,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: LightPageColors.text,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Commentaire optionnel',
+              filled: false,
+              fillColor: Colors.transparent,
+              hintStyle: GoogleFonts.plusJakartaSans(
+                color: LightPageColors.muted,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          LightButton(
+            text: _sending ? 'Envoi…' : 'Envoyer l’avis',
+            onPressed: _sending ? null : _submit,
+          ),
+        ],
       ),
     );
   }

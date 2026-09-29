@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
+import '../../shared/widgets/light_page_scaffold.dart';
 
 class AppTextStyles {
   AppTextStyles._();
@@ -92,6 +93,8 @@ class AppTextStyles {
     color: AppColors.muted,
   );
 
+  static String fieldLabelText(String label) => label.toUpperCase();
+
   static TextStyle get inputText => GoogleFonts.plusJakartaSans(
     fontSize: 14,
     fontWeight: FontWeight.w500,
@@ -134,7 +137,7 @@ class AppTextStyles {
   static TextStyle get sectionTitle => GoogleFonts.plusJakartaSans(
     fontSize: 13.5,
     fontWeight: FontWeight.w700,
-    color: AppColors.white,
+    color: LightPageColors.text,
   );
 
   static TextStyle get footLink => GoogleFonts.plusJakartaSans(

@@ -1,113 +1,72 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/network/session_providers.dart';
+import '../../../../shared/models/api_models.dart';
+import '../../../../shared/widgets/kaba_premium.dart';
 import '../../../../shared/widgets/light_page_scaffold.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class TransactionHistoryPage extends StatefulWidget {
+class TransactionHistoryPage extends ConsumerStatefulWidget {
   const TransactionHistoryPage({super.key});
 
   @override
-  State<TransactionHistoryPage> createState() => _TransactionHistoryPageState();
+  ConsumerState<TransactionHistoryPage> createState() =>
+      _TransactionHistoryPageState();
 }
 
-class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
+class _TransactionHistoryPageState extends ConsumerState<TransactionHistoryPage> {
   int _tab = 0;
   final searchController = TextEditingController();
   final List<String> tabs = const ['Toutes', 'Entrées', 'Sorties', 'Recharges'];
 
-  final List<Map<String, dynamic>> allTx = [
-    {
-      'type': 'in',
-      'category': 'RECHARGE',
-      'title': 'Recharge Mobile Money',
-      'subtitle': 'Togocom · +228 90 12 34 56',
-      'amount': 5000,
-      'bonus': 250,
-      'date': 'Aujourd\'hui · 14h32',
-      'ref': 'KBK-8A3F21',
-      'icon': Icons.add_card_rounded,
-      'status': 'success',
-    },
-    {
-      'type': 'out',
-      'category': 'PAYMENT',
-      'title': 'Commande Chez Mama Afi',
-      'subtitle': 'Riz sauce arachide · 2 plats',
-      'amount': 3500,
-      'date': 'Aujourd\'hui · 12h15',
-      'ref': 'CMD-78945',
-      'icon': Icons.restaurant_rounded,
-      'status': 'success',
-    },
-    {
-      'type': 'in',
-      'category': 'TRANSFER',
-      'title': 'Reçu de Yao Mensah',
-      'subtitle': '+228 91 23 45 67',
-      'amount': 1500,
-      'date': 'Hier · 20h44',
-      'ref': 'TRF-11223',
-      'icon': Icons.arrow_downward_rounded,
-      'status': 'success',
-    },
-    {
-      'type': 'out',
-      'category': 'TRANSFER',
-      'title': 'Envoyé à Afi Kossi',
-      'subtitle': '+228 92 34 56 78',
-      'amount': 2000,
-      'date': 'Hier · 15h08',
-      'ref': 'TRF-99877',
-      'icon': Icons.arrow_upward_rounded,
-      'status': 'success',
-    },
-    {
-      'type': 'in',
-      'category': 'BONUS',
-      'title': 'Bonus Ambassadeur',
-      'subtitle': '3 filleuls actifs ce mois',
-      'amount': 1200,
-      'date': 'Lun · 09h00',
-      'ref': 'BON-66211',
-      'icon': Icons.card_giftcard_rounded,
-      'status': 'success',
-    },
-    {
-      'type': 'out',
-      'category': 'PAYMENT',
-      'title': 'Cantine du Campus',
-      'subtitle': 'Plat du jour · Poulet braisé',
-      'amount': 1800,
-      'date': 'Sam · 13h22',
-      'ref': 'CMD-78201',
-      'icon': Icons.restaurant_menu_rounded,
-      'status': 'success',
-    },
-    {
-      'type': 'in',
-      'category': 'RECHARGE',
-      'title': 'Recharge Carte Bancaire',
-      'subtitle': 'Visa •• 4421',
-      'amount': 10000,
-      'bonus': 1000,
-      'date': 'Ven · 18h05',
-      'ref': 'KBK-2E8A10',
-      'icon': Icons.credit_card_rounded,
-      'status': 'success',
-    },
-    {
-      'type': 'out',
-      'category': 'REFUND',
-      'title': 'Remboursement commande',
-      'subtitle': 'Cantine La Paix · Produit indisponible',
-      'amount': 900,
-      'date': 'Jeu · 11h40',
-      'ref': 'RFD-55128',
-      'icon': Icons.refresh_rounded,
-      'status': 'pending',
-    },
-  ];
+  List<Map<String, dynamic>> get allTx {
+    final api = ref.watch(myTransactionsProvider).valueOrNull ?? const [];
+    return [for (final tx in api) _mapTx(tx)];
+  }
+
+  Map<String, dynamic> _mapTx(TransactionModel tx) {
+    final incoming =
+        tx.type == TransactionType.RECHARGE ||
+        tx.type == TransactionType.TRANSFER_RECEIVED ||
+        tx.type == TransactionType.ORDER_REFUND ||
+        tx.type == TransactionType.COMMISSION;
+    final title = switch (tx.type) {
+      TransactionType.RECHARGE => 'Rechargement',
+      TransactionType.TRANSFER_SENT => 'Transfert envoyé',
+      TransactionType.TRANSFER_RECEIVED => 'Transfert reçu',
+      TransactionType.ORDER_PAYMENT => 'Commande',
+      TransactionType.ORDER_REFUND => 'Remboursement',
+      TransactionType.COMMISSION => 'Commission',
+      TransactionType.PAYOUT => 'Retrait',
+      TransactionType.ADJUSTMENT => 'Ajustement',
+    };
+    final category = switch (tx.type) {
+      TransactionType.RECHARGE => 'RECHARGE',
+      TransactionType.ORDER_PAYMENT => 'PAYMENT',
+      TransactionType.ORDER_REFUND => 'REFUND',
+      _ => 'TRANSFER',
+    };
+    final local = tx.createdAt.toLocal();
+    final hh = local.hour.toString().padLeft(2, '0');
+    final mm = local.minute.toString().padLeft(2, '0');
+    return {
+      'type': incoming ? 'in' : 'out',
+      'category': category,
+      'title': title,
+      'subtitle': tx.reference ?? tx.status.name,
+      'amount': tx.amount,
+      'date': '${local.day}/${local.month} · ${hh}h$mm',
+      'ref': tx.reference ?? tx.id,
+      'icon': incoming ? Icons.add_circle_rounded : Icons.restaurant_rounded,
+      'status': tx.status == TransactionStatus.COMPLETED
+          ? 'success'
+          : tx.status == TransactionStatus.PENDING
+              ? 'pending'
+              : 'failed',
+    };
+  }
 
   List<Map<String, dynamic>> get filtered {
     final q = searchController.text.toLowerCase();
@@ -136,21 +95,12 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
   Widget build(BuildContext context) {
     final entries = allTx
         .where((t) => t['type'] == 'in')
-        .fold(
-          0,
-          (s, t) => s + (t['amount'] as int) + (t['bonus'] as int? ?? 0),
-        );
+        .fold(0, (s, t) => s + (t['amount'] as int));
     final exits = allTx
-        .where((t) => t['type'] == 'out' && t['category'] != 'REFUND')
-        .fold(0, (s, t) => s + t['amount'] as int);
+        .where((t) => t['type'] == 'out')
+        .fold(0, (s, t) => s + (t['amount'] as int));
     return LightPageScaffold(
       title: 'Historique',
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: LightIconButton(icon: Icons.filter_list_rounded, onTap: () {}),
-        ),
-      ],
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         child: Column(
@@ -432,58 +382,10 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
   }
 
   Widget _buildSearch() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: LightPageColors.border, width: 1.5),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.search_rounded,
-            size: 18,
-            color: LightPageColors.muted,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: searchController,
-              onChanged: (_) => setState(() {}),
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: LightPageColors.text,
-              ),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: 'Rechercher une transaction',
-                hintStyle: GoogleFonts.plusJakartaSans(
-                  fontSize: 12.5,
-                  color: LightPageColors.muted,
-                  fontWeight: FontWeight.w500,
-                ),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 13),
-              ),
-            ),
-          ),
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: LightPageColors.bg,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.mic_none_rounded,
-              size: 15,
-              color: LightPageColors.muted,
-            ),
-          ),
-        ],
-      ),
+    return KabaSearchField(
+      controller: searchController,
+      hintText: 'Rechercher une transaction',
+      onChanged: (_) => setState(() {}),
     );
   }
 
@@ -493,7 +395,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: LightPageColors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: LightPageColors.border, width: 1),
       ),
@@ -670,7 +572,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: LightPageColors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: LightPageColors.border, width: 1),
       ),
@@ -683,7 +585,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
               color: LightPageColors.indigoLight,
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.manage_history_rounded,
               size: 42,
               color: LightPageColors.indigo,

@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/network/api_payload.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../shared/models/api_models.dart';
 
@@ -36,17 +38,17 @@ class UserRepository {
         if (notifyPromotions != null) 'notifyPromotions': notifyPromotions,
       },
     );
-    return UserModel.fromJson(response.data as Map<String, dynamic>);
+    return UserModel.fromJson(unwrapEntity(response.data));
   }
 
   Future<UserModel> getMe() async {
     final response = await _apiClient.get(ApiEndpoints.usersMe);
-    return UserModel.fromJson(response.data as Map<String, dynamic>);
+    return UserModel.fromJson(unwrapEntity(response.data));
   }
 
   Future<UserModel> getUserById(String id) async {
     final response = await _apiClient.get(ApiEndpoints.userById(id));
-    return UserModel.fromJson(response.data as Map<String, dynamic>);
+    return UserModel.fromJson(unwrapEntity(response.data));
   }
 
   Future<PaginatedResponse<UserModel>> findAllUsers({
@@ -67,7 +69,7 @@ class UserRepository {
       },
     );
     return PaginatedResponse<UserModel>.fromJson(
-      response.data as Map<String, dynamic>,
+      unwrapPage(response.data),
       UserModel.fromJson,
     );
   }
@@ -105,7 +107,21 @@ class UserRepository {
         if (suspensionReason != null) 'suspensionReason': suspensionReason,
       },
     );
-    return UserModel.fromJson(response.data as Map<String, dynamic>);
+    return UserModel.fromJson(unwrapEntity(response.data));
+  }
+
+  Future<String> uploadAvatar(String filePath) async {
+    final form = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath),
+    });
+    final response = await _apiClient.post(
+      ApiEndpoints.usersMeAvatar,
+      data: form,
+    );
+    final json = unwrapEntity(response.data);
+    return json['url'] as String? ??
+        json['avatarUrl'] as String? ??
+        '';
   }
 }
 

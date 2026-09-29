@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import 'light_page_scaffold.dart';
 
 class KabaBottomSheetModal extends StatelessWidget {
   final Widget child;
@@ -10,6 +11,7 @@ class KabaBottomSheetModal extends StatelessWidget {
   final String? title;
   final Widget? trailing;
   final bool isStatic;
+  final bool forceDark;
 
   const KabaBottomSheetModal({
     super.key,
@@ -20,6 +22,7 @@ class KabaBottomSheetModal extends StatelessWidget {
     this.title,
     this.trailing,
     this.isStatic = false,
+    this.forceDark = false,
   });
 
   static Future<T?> show<T>({
@@ -30,6 +33,7 @@ class KabaBottomSheetModal extends StatelessWidget {
     bool enableDrag = true,
     String? title,
     Widget? trailing,
+    bool forceDark = false,
   }) {
     return showModalBottomSheet<T>(
       context: context,
@@ -44,14 +48,25 @@ class KabaBottomSheetModal extends StatelessWidget {
         enableDrag: enableDrag,
         title: title,
         trailing: trailing,
+        forceDark: forceDark,
         child: child,
       ),
     );
   }
 
+  static Future<bool> confirmLogout(BuildContext context) async {
+    final confirmed = await show<bool>(
+      context: context,
+      title: 'Déconnexion',
+      child: const _LogoutConfirmBody(),
+    );
+    return confirmed == true;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final isDarkMode =
+        forceDark || Theme.of(context).brightness == Brightness.dark;
     final bottomInsets = MediaQuery.of(context).viewInsets.bottom;
 
     Widget buildContent(ScrollController? scrollController) {
@@ -119,7 +134,7 @@ class KabaBottomSheetModal extends StatelessWidget {
       );
     }
 
-    if (isStatic) {
+    if (isStatic || height == null) {
       return buildContent(null);
     }
 
@@ -128,15 +143,76 @@ class KabaBottomSheetModal extends StatelessWidget {
       curve: Curves.easeOut,
       padding: EdgeInsets.only(bottom: bottomInsets),
       child: DraggableScrollableSheet(
-        initialChildSize: height != null
-            ? (height! / MediaQuery.of(context).size.height)
-            : 0.5,
-        minChildSize: 0.3,
+        initialChildSize: (height! / MediaQuery.of(context).size.height).clamp(
+          0.25,
+          0.9,
+        ),
+        minChildSize: 0.25,
         maxChildSize: 0.9,
         expand: false,
         builder: (context, scrollController) {
           return buildContent(scrollController);
         },
+      ),
+    );
+  }
+}
+
+class _LogoutConfirmBody extends StatelessWidget {
+  const _LogoutConfirmBody();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: LightPageColors.redLight,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Icon(
+                Icons.logout_rounded,
+                color: LightPageColors.red,
+                size: 26,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Tu veux vraiment te déconnecter ?',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.h3.copyWith(color: LightPageColors.text),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tu pourras te reconnecter ensuite avec ton numéro.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: LightPageColors.muted,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 24),
+          LightButton(
+            text: 'Se déconnecter',
+            icon: Icons.logout_rounded,
+            isDanger: true,
+            isPrimary: false,
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+          const SizedBox(height: 10),
+          LightButton(
+            text: 'Annuler',
+            isPrimary: false,
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+        ],
       ),
     );
   }

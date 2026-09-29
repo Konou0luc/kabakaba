@@ -1,8 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/network/api_payload.dart';
+import '../../../core/network/jwt_payload.dart';
+import '../../../core/network/student_auth_error.dart';
 import '../../../core/network/token_storage.dart';
 import '../../../shared/models/auth_models.dart';
+import '../../../shared/models/user_model.dart';
 
 class AuthRepository {
   final ApiClient _apiClient;
@@ -15,20 +19,29 @@ class AuthRepository {
       ApiEndpoints.authSendOtp,
       data: {'phone': phone},
     );
-    return SendOtpResponse.fromJson(response.data as Map<String, dynamic>);
+    return SendOtpResponse.fromJson(unwrapEntity(response.data));
   }
 
   Future<AuthResponse> verifyOtp({
     required String phone,
     required String code,
+    String? campusId,
+    String? referralCode,
   }) async {
     final response = await _apiClient.post(
       ApiEndpoints.authVerifyOtp,
-      data: {'phone': phone, 'code': code},
+      data: {
+        'phone': phone,
+        'code': code,
+        if (campusId != null && campusId.isNotEmpty) 'campusId': campusId,
+        if (referralCode != null && referralCode.isNotEmpty)
+          'referralCode': referralCode,
+      },
     );
-    final authResponse = AuthResponse.fromJson(
-      response.data as Map<String, dynamic>,
-    );
+    final authResponse = AuthResponse.fromJson(unwrapEntity(response.data));
+    if (authResponse.user.role != UserRole.STUDENT) {
+      throw WrongAppAccountException();
+    }
 
     await _tokenStorage.saveTokens(
       accessToken: authResponse.accessToken,
@@ -50,6 +63,9 @@ class AuthRepository {
     final authResponse = AuthResponse.fromJson(
       response.data as Map<String, dynamic>,
     );
+    if (authResponse.user.role != UserRole.STUDENT) {
+      throw WrongAppAccountException();
+    }
 
     await _tokenStorage.saveTokens(
       accessToken: authResponse.accessToken,
@@ -88,7 +104,21 @@ class AuthRepository {
     return SuccessResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
-  bool isAuthenticated() => _tokenStorage.hasTokens();
+  bool isAuthenticated() {
+    if (!_tokenStorage.hasTokens()) return false;
+    final jwt = JwtPayload.tryParse(_tokenStorage.getAccessToken());
+    if (jwt != null && !jwt.isStudent) return false;
+    return true;
+  }
+
+  Future<void> discardNonStudentSession() async {
+    if (!_tokenStorage.hasTokens()) return;
+    final jwt = JwtPayload.tryParse(_tokenStorage.getAccessToken());
+    if (jwt != null && !jwt.isStudent) {
+      await _tokenStorage.clearTokens();
+    }
+  }
+
   String? getCurrentUserId() => _tokenStorage.getUserId();
 }
 

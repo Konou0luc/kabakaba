@@ -1,260 +1,242 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/network/repositories.dart';
+import '../../../../core/network/session_providers.dart';
+import '../../../../core/utils/api_error.dart';
+import '../../../../core/utils/kaba_snack.dart';
+import '../../../../features/cart/data/cart_provider.dart';
+import '../../../../shared/models/api_models.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/utils/ticket_format.dart';
+import '../../../../shared/widgets/kaba_premium.dart';
 import '../../../../shared/widgets/light_page_scaffold.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class OrderHistoryPage extends StatefulWidget {
+class OrderHistoryPage extends ConsumerStatefulWidget {
   const OrderHistoryPage({super.key});
 
   @override
-  State<OrderHistoryPage> createState() => _OrderHistoryPageState();
+  ConsumerState<OrderHistoryPage> createState() => _OrderHistoryPageState();
 }
 
-class _OrderHistoryPageState extends State<OrderHistoryPage> {
+class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
   int _tab = 0;
-  final List<String> tabs = const [
-    'En attente',
-    'Préparation',
-    'Programmées',
-    'Historique',
-    'Favoris',
-  ];
+  final List<String> tabs = const ['En attente', 'Préparation', 'Historique'];
+  Timer? _poll;
 
-  final Map<String, List<Map<String, dynamic>>> ordersByTab = {
-    'pending': [
-      {
-        'id': 'CMD-99887',
-        'vendor': 'Chez Mama Afi',
-        'vendorLogo': '🍲',
-        'items': 'Riz sauce arachide · 2x',
-        'total': 3500,
-        'count': 2,
-        'time': '25 min',
-        'eta': '13h20',
-        'pickup': 'Sur place',
-        'status': 'pending',
-        'color': LightPageColors.warning,
-        'badge': 'En attente',
-        'date': 'Aujourd\'hui · 12h55',
-        'progress': 1,
-        'steps': ['Confirmée', 'En préparation', 'Prête', 'Retirée'],
-      },
-      {
-        'id': 'CMD-99801',
-        'vendor': 'Cantine du Campus',
-        'vendorLogo': '🍛',
-        'items': 'Plat du jour · Poulet braisé · Attiéké',
-        'total': 1800,
-        'count': 1,
-        'time': '~15 min',
-        'eta': '13h45',
-        'pickup': 'À emporter',
-        'status': 'pending',
-        'color': LightPageColors.warning,
-        'badge': 'En attente',
-        'date': 'Aujourd\'hui · 13h30',
-        'progress': 0,
-        'steps': ['Confirmée', 'En préparation', 'Prête', 'Retirée'],
-      },
-    ],
-    'prepping': [
-      {
-        'id': 'CMD-99762',
-        'vendor': 'La Paix Restaurant',
-        'vendorLogo': '🥘',
-        'items': 'Alloco + Poulet · Fanta',
-        'total': 2400,
-        'count': 3,
-        'time': '8 min restantes',
-        'eta': '12h50',
-        'pickup': 'Sur place',
-        'status': 'prepping',
-        'color': const Color(0xFF6366F1),
-        'badge': 'En préparation',
-        'date': 'Aujourd\'hui · 12h30',
-        'progress': 2,
-        'steps': ['Confirmée', 'En préparation', 'Prête', 'Retirée'],
-      },
-    ],
-    'scheduled': [
-      {
-        'id': 'CMD-S-001',
-        'vendor': 'Chez Mama Afi',
-        'vendorLogo': '🍲',
-        'items': 'Déjeuner du lundi · Menu étudiant',
-        'total': 1500,
-        'count': 1,
-        'time': 'Lun 12h30',
-        'eta': 'Récupération lundi',
-        'pickup': 'Sur place',
-        'status': 'scheduled',
-        'color': const Color(0xFF0EA5E9),
-        'badge': 'Programmée',
-        'date': 'À venir · Lundi 18 août',
-        'progress': 0,
-        'steps': ['Confirmée', 'En préparation', 'Prête', 'Retirée'],
-      },
-      {
-        'id': 'CMD-S-002',
-        'vendor': 'Cantine du Campus',
-        'vendorLogo': '🍛',
-        'items': 'Pack semaine · 5 repas midi',
-        'total': 7000,
-        'count': 5,
-        'time': 'Toute la semaine',
-        'eta': 'Du lundi au vendredi',
-        'pickup': 'Sur place',
-        'status': 'scheduled',
-        'color': const Color(0xFF0EA5E9),
-        'badge': 'Programmée',
-        'date': 'À venir · 18-22 août',
-        'progress': 0,
-        'steps': ['Confirmée', 'En préparation', 'Prête', 'Retirée'],
-      },
-    ],
-    'history': [
-      {
-        'id': 'CMD-78201',
-        'vendor': 'Cantine du Campus',
-        'vendorLogo': '🍛',
-        'items': 'Plat du jour · Poulet braisé',
-        'total': 1800,
-        'count': 1,
-        'time': '13h22',
-        'eta': 'Complété',
-        'pickup': 'Sur place',
-        'status': 'completed',
-        'color': LightPageColors.green,
-        'badge': 'Livrée',
-        'date': 'Sam 9 août · 13h10',
-        'progress': 4,
-        'steps': ['Confirmée', 'En préparation', 'Prête', 'Retirée'],
-      },
-      {
-        'id': 'CMD-77120',
-        'vendor': 'Chez Mama Afi',
-        'vendorLogo': '🍲',
-        'items': 'Riz gras · 2x · Salade',
-        'total': 2900,
-        'count': 3,
-        'time': '12h15',
-        'eta': 'Complété',
-        'pickup': 'À emporter',
-        'status': 'completed',
-        'color': LightPageColors.green,
-        'badge': 'Livrée',
-        'date': 'Ven 8 août · 12h00',
-        'progress': 4,
-        'steps': ['Confirmée', 'En préparation', 'Prête', 'Retirée'],
-      },
-      {
-        'id': 'CMD-76540',
-        'vendor': 'La Paix Restaurant',
-        'vendorLogo': '🥘',
-        'items': 'Plat végétarien · Kebab',
-        'total': 1600,
-        'count': 1,
-        'time': '19h40',
-        'eta': 'Annulée',
-        'pickup': 'Sur place',
-        'status': 'cancelled',
-        'color': LightPageColors.red,
-        'badge': 'Annulée',
-        'date': 'Jeu 7 août · 19h38',
-        'progress': 0,
-        'steps': ['Confirmée', 'En préparation', 'Prête', 'Retirée'],
-      },
-    ],
-    'favs': [
-      {
-        'vendor': 'Chez Mama Afi',
-        'vendorLogo': '🍲',
-        'dishName': 'Riz sauce arachide',
-        'dishDesc': 'Riz long · Sauce riche · Poulet',
-        'price': 1750,
-        'rating': 4.8,
-        'reviews': 327,
-        'fav': true,
-      },
-      {
-        'vendor': 'Cantine du Campus',
-        'vendorLogo': '🍛',
-        'dishName': 'Plat du jour Poulet',
-        'dishDesc': 'Menu étudiant · Boisson incluse',
-        'price': 1800,
-        'rating': 4.6,
-        'reviews': 1024,
-        'fav': true,
-      },
-    ],
-  };
+  @override
+  void initState() {
+    super.initState();
+    _poll = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (mounted) refreshStudentSession(ref);
+    });
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _cancelOrder(String id) async {
+    try {
+      await ref.read(orderRepositoryProvider).cancelOrder(id);
+      ref.invalidate(myOrdersProvider);
+      ref.invalidate(meProvider);
+      if (mounted) showKabaSnack(context, 'Commande annulée');
+    } catch (error) {
+      if (mounted) showKabaSnack(context, apiErrorMessage(error), error: true);
+    }
+  }
+
+  Future<void> _confirmReceive(String id) async {
+    try {
+      await ref.read(orderRepositoryProvider).confirmReceive(id);
+      ref.invalidate(myOrdersProvider);
+      ref.invalidate(meProvider);
+      if (mounted) showKabaSnack(context, 'Commande marquée comme retirée');
+    } catch (error) {
+      if (mounted) showKabaSnack(context, apiErrorMessage(error), error: true);
+    }
+  }
+
+  void _reorder(OrderModel order) {
+    final lines = [
+      for (final item in order.items)
+        if (item.menuItemId != null && item.menuItemId!.isNotEmpty)
+          CartLine(
+            vendorId: order.vendorId,
+            vendorName: order.vendorName,
+            menuItemId: item.menuItemId!,
+            name: item.name,
+            priceTickets: item.priceTickets,
+            quantity: item.quantity,
+            imageUrl: item.imageUrl,
+          ),
+    ];
+    if (lines.isEmpty) {
+      context.push('/canteen-detail', extra: order.vendorId);
+      return;
+    }
+    ref.read(cartProvider.notifier).reorderFrom(
+          vendorId: order.vendorId,
+          vendorName: order.vendorName,
+          lines: lines,
+        );
+    showKabaSnack(context, 'Articles ajoutés au panier');
+    context.push('/cart');
+  }
+
+  Map<String, dynamic> _cardOf(OrderModel order) {
+    final items = order.items.isEmpty
+        ? '${order.totalTickets} tickets'
+        : order.items
+              .map((line) => '${line.name} · ${line.quantity}x')
+              .join(' · ');
+    final (badge, color, progress, statusKey) = switch (order.status) {
+      OrderStatus.PENDING => (
+        'En attente',
+        LightPageColors.warning,
+        1,
+        'pending',
+      ),
+      OrderStatus.ACCEPTED => (
+        'Acceptée',
+        LightPageColors.warning,
+        1,
+        'pending',
+      ),
+      OrderStatus.IN_PREPARATION => (
+        'En préparation',
+        const Color(0xFF6366F1),
+        2,
+        'prepping',
+      ),
+      OrderStatus.READY => ('Prête', LightPageColors.green, 3, 'prepping'),
+      OrderStatus.REFUSED => ('Refusée', LightPageColors.red, 0, 'cancelled'),
+      OrderStatus.CANCELLED_VENDOR ||
+      OrderStatus.CANCELLED_STUDENT ||
+      OrderStatus.CANCELLED => ('Annulée', LightPageColors.red, 0, 'cancelled'),
+      _ => ('Terminée', LightPageColors.muted, 4, 'history'),
+    };
+    return {
+      'id': order.id,
+      'order': order,
+      'vendor': order.vendorName,
+      'vendorId': order.vendorId,
+      'items': items,
+      'total': order.totalTickets,
+      'count': order.items.fold<int>(0, (sum, line) => sum + line.quantity),
+      'time': _formatWhen(order.createdAt),
+      'eta': order.readyAt != null ? _formatWhen(order.readyAt!) : '—',
+      'pickup': 'Sur place',
+      'status': statusKey,
+      'ready': order.status == OrderStatus.READY,
+      'color': color,
+      'badge': badge,
+      'date': _formatWhen(order.createdAt),
+      'progress': progress,
+      'steps': ['Confirmée', 'En préparation', 'Prête', 'Retirée'],
+    };
+  }
+
+  String _formatWhen(DateTime date) {
+    final local = date.toLocal();
+    final hh = local.hour.toString().padLeft(2, '0');
+    final mm = local.minute.toString().padLeft(2, '0');
+    return '${local.day}/${local.month} · ${hh}h$mm';
+  }
 
   List<Map<String, dynamic>> get currentData {
+    final orders = ref.watch(myOrdersProvider).valueOrNull ?? const [];
+    final cards = orders.map(_cardOf).toList();
     return switch (_tab) {
-      0 => ordersByTab['pending'] ?? [],
-      1 => ordersByTab['prepping'] ?? [],
-      2 => ordersByTab['scheduled'] ?? [],
-      3 => ordersByTab['history'] ?? [],
-      4 => ordersByTab['favs'] ?? [],
-      _ => [],
+      0 => cards.where((o) => o['status'] == 'pending').toList(),
+      1 => cards.where((o) => o['status'] == 'prepping').toList(),
+      _ =>
+        cards
+            .where(
+              (o) => o['status'] == 'history' || o['status'] == 'cancelled',
+            )
+            .toList(),
     };
   }
 
   @override
   Widget build(BuildContext context) {
-    return LightPageScaffold(
-      title: 'Mes commandes',
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: LightIconButton(icon: Icons.search_rounded, onTap: () {}),
-        ),
-      ],
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: LightTabs(
-              tabs: tabs,
-              selectedIndex: _tab,
-              onTap: (i) => setState(() => _tab = i),
+    return Scaffold(
+      backgroundColor: AppColors.adaptiveBg(context),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            KabaIndigoHero(
+              padding: const EdgeInsets.fromLTRB(22, 18, 22, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Suivi', style: AppTextStyles.greetLabel),
+                  const SizedBox(height: 4),
+                  Text('Mes commandes', style: AppTextStyles.greetName),
+                ],
+              ),
             ),
-          ),
-          Expanded(child: _tab == 4 ? _buildFavsList() : _buildOrdersList()),
-        ],
+            Expanded(
+              child: KabaOverlapSheet(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                      child: LightTabs(
+                        tabs: tabs,
+                        selectedIndex: _tab,
+                        onTap: (i) => setState(() => _tab = i),
+                      ),
+                    ),
+                    Expanded(child: _buildOrdersList()),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildOrdersList() {
     final data = currentData;
-    if (data.isEmpty) return _buildEmptyOrders();
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
-      itemCount: data.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, i) {
-        return _buildOrderCard(data[i])
-            .animate()
-            .fadeIn(delay: (40 * i).ms, begin: 0.8)
-            .slideY(delay: (40 * i).ms, begin: 0.08);
-      },
-    );
-  }
-
-  Widget _buildFavsList() {
-    final data = currentData;
-    if (data.isEmpty) return _buildEmptyFavs();
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
-      itemCount: data.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, i) {
-        return _buildFavCard(
-          data[i],
-        ).animate().fadeIn(delay: (40 * i).ms, begin: 0.8);
-      },
+    final list = data.isEmpty
+        ? ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              SizedBox(
+                height: MediaQuery.sizeOf(context).height * 0.45,
+                child: _buildEmptyOrders(),
+              ),
+            ],
+          )
+        : ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+            itemCount: data.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, i) {
+              return _buildOrderCard(data[i])
+                  .animate()
+                  .fadeIn(delay: (40 * i).ms, begin: 0.8)
+                  .slideY(delay: (40 * i).ms, begin: 0.08);
+            },
+          );
+    return RefreshIndicator(
+      color: LightPageColors.orange,
+      onRefresh: () => refreshStudentSession(ref),
+      child: list,
     );
   }
 
@@ -263,7 +245,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
     final isScheduled = o['status'] == 'scheduled';
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: LightPageColors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: LightPageColors.border, width: 1),
         boxShadow: [
@@ -285,13 +267,19 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                   width: 46,
                   height: 46,
                   decoration: BoxDecoration(
-                    color: LightPageColors.orangeLight,
-                    borderRadius: BorderRadius.circular(12),
+                    color: LightPageColors.indigoLight,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   alignment: Alignment.center,
                   child: Text(
-                    o['vendorLogo'] as String,
-                    style: const TextStyle(fontSize: 24),
+                        (o['vendor'] as String).isEmpty
+                            ? 'K'
+                            : (o['vendor'] as String)[0].toUpperCase(),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: LightPageColors.indigo,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -411,7 +399,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                             ),
                           ),
                           Text(
-                            '${(o['total'] as int).toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} tickets',
+                            '${formatTickets(o['total'] as int)} tickets',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 15,
                               fontWeight: FontWeight.w900,
@@ -428,59 +416,43 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                           runSpacing: 8,
                           alignment: WrapAlignment.end,
                           children: [
-                            if (isCancelled)
+                            if (o['ready'] == true)
                               LightButton(
-                                text: 'Commander à nouveau',
-                                icon: Icons.refresh_rounded,
-                                onPressed: () {},
-                              )
-                            else if (o['status'] == 'completed')
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 12,
-                                children: [
-                                  LightButton(
-                                    text: 'Recommander',
-                                    icon: Icons.refresh_rounded,
-                                    isPrimary: false,
-                                    compact: true,
-                                    onPressed: () {},
-                                  ),
-                                  LightButton(
-                                    text: 'Détails',
-                                    icon: Icons.arrow_forward_rounded,
-                                    compact: true,
-                                    onPressed: () {},
-                                  ),
-                                ],
-                              )
-                            else if (isScheduled)
-                              LightButton(
-                                text: 'Gérer la réservation',
-                                icon: Icons.calendar_today_rounded,
+                                text: 'J’ai récupéré',
                                 compact: true,
-                                onPressed: () {},
-                              )
-                            else
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 12,
-                                children: [
-                                  LightButton(
-                                    text: 'Suivre',
-                                    icon: Icons.location_on_outlined,
-                                    isPrimary: false,
-                                    compact: true,
-                                    onPressed: () {},
-                                  ),
-                                  LightButton(
-                                    text: 'Contacter',
-                                    icon: Icons.chat_bubble_outline_rounded,
-                                    compact: true,
-                                    onPressed: () {},
-                                  ),
-                                ],
+                                onPressed: () =>
+                                    _confirmReceive(o['id'] as String),
                               ),
+                            if (o['status'] == 'pending')
+                              LightButton(
+                                text: 'Annuler',
+                                icon: Icons.close_rounded,
+                                isPrimary: false,
+                                compact: true,
+                                onPressed: () =>
+                                    _cancelOrder(o['id'] as String),
+                              ),
+                            if (o['status'] == 'history' ||
+                                o['status'] == 'cancelled')
+                              LightButton(
+                                text: 'Recommander',
+                                icon: Icons.refresh_rounded,
+                                isPrimary: false,
+                                compact: true,
+                                onPressed: () =>
+                                    _reorder(o['order'] as OrderModel),
+                              ),
+                            LightButton(
+                              text: 'Détails',
+                              icon: Icons.arrow_forward_rounded,
+                              compact: true,
+                              isPrimary: o['ready'] != true &&
+                                  o['status'] != 'pending',
+                              onPressed: () => context.push(
+                                '/order-detail',
+                                extra: o['id'] as String,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -598,259 +570,21 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
     );
   }
 
-  Widget _buildFavCard(Map<String, dynamic> f) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: LightPageColors.border, width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 68,
-            height: 68,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [LightPageColors.orangeLight, const Color(0xFFFFE0C9)],
-              ),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              f['vendorLogo'] as String,
-              style: const TextStyle(fontSize: 34),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        f['dishName'] as String,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w800,
-                          color: LightPageColors.text,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        color: LightPageColors.redLight,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.favorite_rounded,
-                        color: LightPageColors.red,
-                        size: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  f['vendor'] as String,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: LightPageColors.indigo,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  f['dishDesc'] as String,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11,
-                    color: LightPageColors.muted,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: LightPageColors.warningLight,
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            size: 10,
-                            color: LightPageColors.warning,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            '${f['rating']}',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: LightPageColors.warning,
-                            ),
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            '(${f['reviews']})',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w600,
-                              color: LightPageColors.muted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '${(f['price'] as int).toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} tickets',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        color: LightPageColors.orange,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildEmptyOrders() {
-    return Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 104,
-            height: 104,
-            decoration: BoxDecoration(
-              color: LightPageColors.indigoLight,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.receipt_long_outlined,
-              size: 48,
-              color: LightPageColors.indigo,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            switch (_tab) {
-              0 => 'Aucune commande en attente',
-              1 => 'Rien en préparation',
-              2 => 'Aucune commande programmée',
-              _ => 'Aucune commande passée',
-            },
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: LightPageColors.text,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            switch (_tab) {
-              0 => 'Trouvez une cantine et passez votre première commande',
-              1 => 'Vos commandes en cours apparaîtront ici',
-              2 => 'Programmez vos repas pour la semaine',
-              _ => 'Votre historique de commande apparaîtra ici',
-            },
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 12,
-              height: 1.5,
-              color: LightPageColors.muted,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 22),
-          SizedBox(
-            width: 220,
-            child: LightButton(
-              text: 'Découvrir les cantines',
-              icon: Icons.restaurant_menu_rounded,
-              onPressed: () => context.go('/home'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyFavs() {
-    return Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 104,
-            height: 104,
-            decoration: BoxDecoration(
-              color: LightPageColors.redLight,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.favorite_border_rounded,
-              size: 48,
-              color: LightPageColors.red,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Aucun favori pour le moment',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: LightPageColors.text,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Ajoutez vos plats et cantines préférés en appuyant sur l\'icône ❤',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 12,
-              height: 1.5,
-              color: LightPageColors.muted,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 22),
-          SizedBox(
-            width: 220,
-            child: LightButton(
-              text: 'Explorer les menus',
-              icon: Icons.search_rounded,
-              onPressed: () => context.go('/home'),
-            ),
-          ),
-        ],
-      ),
+    return KabaEmptyState(
+      icon: Icons.receipt_long_outlined,
+      title: switch (_tab) {
+        0 => 'Aucune commande en attente',
+        1 => 'Rien en préparation',
+        _ => 'Aucune commande passée',
+      },
+      subtitle: switch (_tab) {
+        0 => 'Trouve une cantine et passe ta première commande.',
+        1 => 'Tes commandes en cours apparaîtront ici.',
+        _ => 'Ton historique de commandes apparaîtra ici.',
+      },
+      actionLabel: 'Découvrir les cantines',
+      onAction: () => context.go('/canteen-list'),
     );
   }
 }

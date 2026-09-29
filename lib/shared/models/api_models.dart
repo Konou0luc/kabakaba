@@ -1,3 +1,5 @@
+import '../../core/network/json_reader.dart';
+
 class VendorModel {
   final String id;
   final DateTime createdAt;
@@ -30,21 +32,19 @@ class VendorModel {
   });
 
   factory VendorModel.fromJson(Map<String, dynamic> json) => VendorModel(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] != null
-            ? DateTime.parse(json['deletedAt'] as String)
-            : null,
-        userId: json['userId'] as String,
-        canteenName: json['canteenName'] as String,
-        logoUrl: json['logoUrl'] as String?,
-        bannerUrl: json['bannerUrl'] as String?,
-        description: json['description'] as String?,
-        balanceFcfa: (json['balanceFcfa'] as num?)?.toDouble() ?? 0.0,
-        debtFcfa: (json['debtFcfa'] as num?)?.toDouble() ?? 0.0,
-        isActive: json['isActive'] as bool? ?? true,
-        isOpen: json['isOpen'] as bool? ?? false,
+        id: json.requireString('id'),
+        createdAt: json.dateTimeOrNow('createdAt'),
+        updatedAt: json.dateTimeOrNow('updatedAt'),
+        deletedAt: json.optionalDateTime('deletedAt'),
+        userId: json.stringOr('userId', ''),
+        canteenName: json.stringOr('canteenName', 'Cantine'),
+        logoUrl: json.optionalString('logoUrl'),
+        bannerUrl: json.optionalString('bannerUrl'),
+        description: json.optionalString('description'),
+        balanceFcfa: json.decimalOr('balanceFcfa', 0),
+        debtFcfa: json.decimalOr('debtFcfa', 0),
+        isActive: json.boolOr('isActive', true),
+        isOpen: json.boolOr('isOpen', false),
       );
 
   Map<String, dynamic> toJson() => {
@@ -86,16 +86,14 @@ class CampusModel {
   });
 
   factory CampusModel.fromJson(Map<String, dynamic> json) => CampusModel(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] != null
-            ? DateTime.parse(json['deletedAt'] as String)
-            : null,
-        name: json['name'] as String,
-        city: json['city'] as String,
-        institution: json['institution'] as String,
-        isActive: json['isActive'] as bool? ?? true,
+        id: json.requireString('id'),
+        createdAt: json.dateTimeOrNow('createdAt'),
+        updatedAt: json.dateTimeOrNow('updatedAt'),
+        deletedAt: json.optionalDateTime('deletedAt'),
+        name: json.stringOr('name', 'Campus'),
+        city: json.stringOr('city', ''),
+        institution: json.stringOr('institution', ''),
+        isActive: json.boolOr('isActive', true),
       );
 
   Map<String, dynamic> toJson() => {
@@ -113,20 +111,83 @@ class CampusModel {
 enum OrderStatus {
   PENDING,
   ACCEPTED,
+  IN_PREPARATION,
   READY,
+  RECEIVED,
+  AUTO_RECEIVED,
+  REFUSED,
+  CANCELLED_VENDOR,
+  CANCELLED_STUDENT,
+  REFUNDED,
   CONFIRMED,
   REJECTED,
   CANCELLED,
   COMPLETED,
 }
 
-OrderStatus orderStatusFromJson(String value) =>
-    OrderStatus.values.firstWhere(
-      (e) => e.name.toUpperCase() == value.toUpperCase(),
-      orElse: () => OrderStatus.PENDING,
-    );
+OrderStatus orderStatusFromJson(String value) {
+  switch (value.toUpperCase()) {
+    case 'IN_PREPARATION':
+      return OrderStatus.IN_PREPARATION;
+    case 'RECEIVED':
+      return OrderStatus.RECEIVED;
+    case 'AUTO_RECEIVED':
+      return OrderStatus.AUTO_RECEIVED;
+    case 'REFUSED':
+    case 'REJECTED':
+      return OrderStatus.REFUSED;
+    case 'CANCELLED_VENDOR':
+      return OrderStatus.CANCELLED_VENDOR;
+    case 'CANCELLED_STUDENT':
+    case 'CANCELLED':
+      return OrderStatus.CANCELLED_STUDENT;
+    case 'REFUNDED':
+      return OrderStatus.REFUNDED;
+    case 'READY':
+      return OrderStatus.READY;
+    case 'ACCEPTED':
+    case 'CONFIRMED':
+      return OrderStatus.ACCEPTED;
+    case 'COMPLETED':
+      return OrderStatus.RECEIVED;
+    default:
+      return OrderStatus.PENDING;
+  }
+}
+
+bool orderIsPending(OrderStatus status) =>
+    status == OrderStatus.PENDING || status == OrderStatus.ACCEPTED;
+
+bool orderIsPreparing(OrderStatus status) =>
+    status == OrderStatus.IN_PREPARATION || status == OrderStatus.READY;
+
+bool orderIsHistory(OrderStatus status) =>
+    status == OrderStatus.RECEIVED ||
+    status == OrderStatus.AUTO_RECEIVED ||
+    status == OrderStatus.REFUSED ||
+    status == OrderStatus.CANCELLED_VENDOR ||
+    status == OrderStatus.CANCELLED_STUDENT ||
+    status == OrderStatus.REFUNDED ||
+    status == OrderStatus.CANCELLED ||
+    status == OrderStatus.COMPLETED;
 
 String orderStatusToJson(OrderStatus status) => status.name;
+
+class OrderLinePreview {
+  final String name;
+  final int quantity;
+  final String? menuItemId;
+  final String? imageUrl;
+  final int priceTickets;
+
+  const OrderLinePreview({
+    required this.name,
+    required this.quantity,
+    this.menuItemId,
+    this.imageUrl,
+    this.priceTickets = 0,
+  });
+}
 
 class OrderModel {
   final String id;
@@ -135,6 +196,7 @@ class OrderModel {
   final DateTime? deletedAt;
   final String studentId;
   final String vendorId;
+  final String vendorName;
   final OrderStatus status;
   final int totalTickets;
   final double escrowAmount;
@@ -142,6 +204,7 @@ class OrderModel {
   final String? reason;
   final DateTime? readyAt;
   final DateTime? confirmedAt;
+  final List<OrderLinePreview> items;
 
   OrderModel({
     required this.id,
@@ -150,6 +213,7 @@ class OrderModel {
     this.deletedAt,
     required this.studentId,
     required this.vendorId,
+    required this.vendorName,
     required this.status,
     required this.totalTickets,
     required this.escrowAmount,
@@ -157,29 +221,46 @@ class OrderModel {
     this.reason,
     this.readyAt,
     this.confirmedAt,
+    this.items = const [],
   });
 
-  factory OrderModel.fromJson(Map<String, dynamic> json) => OrderModel(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] != null
-            ? DateTime.parse(json['deletedAt'] as String)
-            : null,
-        studentId: json['studentId'] as String,
-        vendorId: json['vendorId'] as String,
-        status: orderStatusFromJson(json['status'] as String),
-        totalTickets: (json['totalTickets'] as num?)?.toInt() ?? 0,
-        escrowAmount: (json['escrowAmount'] as num?)?.toDouble() ?? 0.0,
-        packagingOptionId: json['packagingOptionId'] as String?,
-        reason: json['reason'] as String?,
-        readyAt: json['readyAt'] != null
-            ? DateTime.parse(json['readyAt'] as String)
-            : null,
-        confirmedAt: json['confirmedAt'] != null
-            ? DateTime.parse(json['confirmedAt'] as String)
-            : null,
-      );
+  factory OrderModel.fromJson(Map<String, dynamic> json) {
+    final vendor = json.nested('vendor');
+    final rawItems = json.nestedList('items');
+    return OrderModel(
+      id: json.requireString('id'),
+      createdAt: json.dateTimeOrNow('createdAt'),
+      updatedAt: json.dateTimeOrNow('updatedAt'),
+      deletedAt: json.optionalDateTime('deletedAt'),
+      studentId: json.stringOr('studentId', ''),
+      vendorId: json.stringOr('vendorId', ''),
+      vendorName:
+          vendor?.stringOr('canteenName', 'Cantine') ??
+          json.stringOr('vendorName', 'Cantine'),
+      status: orderStatusFromJson(json.stringOr('status', 'PENDING')),
+      totalTickets: json.intOr('totalTickets', 0),
+      escrowAmount: json.decimalOr('escrowAmount', 0),
+      packagingOptionId: json.optionalString('packagingOptionId'),
+      reason: json.optionalString('reason'),
+      readyAt: json.optionalDateTime('readyAt'),
+      confirmedAt: json.optionalDateTime('confirmedAt'),
+      items: rawItems.map((item) {
+        final menu = item.nested('menuItem');
+        return OrderLinePreview(
+          menuItemId:
+              item.optionalString('menuItemId') ?? menu?.optionalString('id'),
+          name: menu?.stringOr('name', 'Plat') ?? item.stringOr('name', 'Plat'),
+          quantity: item.intOr('quantity', 1),
+          imageUrl: menu?.optionalString('imageUrl') ??
+              item.optionalString('imageUrl'),
+          priceTickets: item.intOr(
+            'priceTickets',
+            menu?.intOr('priceTickets', 0) ?? 0,
+          ),
+        );
+      }).toList(),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -188,6 +269,7 @@ class OrderModel {
         if (deletedAt != null) 'deletedAt': deletedAt!.toIso8601String(),
         'studentId': studentId,
         'vendorId': vendorId,
+        'vendorName': vendorName,
         'status': orderStatusToJson(status),
         'totalTickets': totalTickets,
         'escrowAmount': escrowAmount,
@@ -210,6 +292,7 @@ class MenuItemModel {
   final String? imageUrl;
   final bool isAvailable;
   final String? category;
+  final String type;
 
   MenuItemModel({
     required this.id,
@@ -223,22 +306,24 @@ class MenuItemModel {
     this.imageUrl,
     required this.isAvailable,
     this.category,
+    this.type = 'FIXED',
   });
 
+  bool get isCustomizable => type.toUpperCase() == 'CUSTOMIZABLE';
+
   factory MenuItemModel.fromJson(Map<String, dynamic> json) => MenuItemModel(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] != null
-            ? DateTime.parse(json['deletedAt'] as String)
-            : null,
-        vendorId: json['vendorId'] as String,
-        name: json['name'] as String,
-        description: json['description'] as String?,
-        priceTickets: (json['priceTickets'] as num?)?.toInt() ?? 0,
-        imageUrl: json['imageUrl'] as String?,
-        isAvailable: json['isAvailable'] as bool? ?? true,
-        category: json['category'] as String?,
+        id: json.requireString('id'),
+        createdAt: json.dateTimeOrNow('createdAt'),
+        updatedAt: json.dateTimeOrNow('updatedAt'),
+        deletedAt: json.optionalDateTime('deletedAt'),
+        vendorId: json.stringOr('vendorId', ''),
+        name: json.stringOr('name', 'Plat'),
+        description: json.optionalString('description'),
+        priceTickets: json.intOr('priceTickets', 0),
+        imageUrl: json.optionalString('imageUrl'),
+        isAvailable: json.boolOr('isAvailable', true),
+        category: json.optionalString('category'),
+        type: json.stringOr('type', 'FIXED'),
       );
 
   Map<String, dynamic> toJson() => {
@@ -253,7 +338,144 @@ class MenuItemModel {
         if (imageUrl != null) 'imageUrl': imageUrl,
         'isAvailable': isAvailable,
         if (category != null) 'category': category,
+        'type': type,
       };
+}
+
+class MenuComponentModel {
+  final String id;
+  final String itemId;
+  final String name;
+  final int unitPriceTickets;
+  final int minQty;
+  final int maxQty;
+
+  MenuComponentModel({
+    required this.id,
+    required this.itemId,
+    required this.name,
+    required this.unitPriceTickets,
+    required this.minQty,
+    required this.maxQty,
+  });
+
+  factory MenuComponentModel.fromJson(Map<String, dynamic> json) =>
+      MenuComponentModel(
+        id: json.requireString('id'),
+        itemId: json.stringOr('itemId', ''),
+        name: json.stringOr('name', 'Extra'),
+        unitPriceTickets: json.intOr('unitPriceTickets', 0),
+        minQty: json.intOr('minQty', 0),
+        maxQty: json.intOr('maxQty', 10),
+      );
+}
+
+class PackagingOptionModel {
+  final String id;
+  final String itemId;
+  final String name;
+  final int extraCost;
+  final bool required;
+
+  PackagingOptionModel({
+    required this.id,
+    required this.itemId,
+    required this.name,
+    required this.extraCost,
+    required this.required,
+  });
+
+  factory PackagingOptionModel.fromJson(Map<String, dynamic> json) =>
+      PackagingOptionModel(
+        id: json.requireString('id'),
+        itemId: json.stringOr('itemId', ''),
+        name: json.stringOr('name', 'Emballage'),
+        extraCost: json.intOr('extraCost', 0),
+        required: json.boolOr('required', false),
+      );
+}
+
+class FacultyModel {
+  final String id;
+  final String campusId;
+  final String name;
+  final bool active;
+
+  FacultyModel({
+    required this.id,
+    required this.campusId,
+    required this.name,
+    required this.active,
+  });
+
+  factory FacultyModel.fromJson(Map<String, dynamic> json) => FacultyModel(
+        id: json.requireString('id'),
+        campusId: json.stringOr('campusId', ''),
+        name: json.stringOr('name', 'Faculté'),
+        active: json.boolOr('active', true),
+      );
+}
+
+class RechargeQuote {
+  final int amountFcfa;
+  final int ticketsReceived;
+  final int feeFcfa;
+  final bool exact;
+  final List<String> summaryLines;
+
+  const RechargeQuote({
+    required this.amountFcfa,
+    required this.ticketsReceived,
+    required this.feeFcfa,
+    required this.exact,
+    this.summaryLines = const [],
+  });
+
+  factory RechargeQuote.fromJson(Map<String, dynamic> json) => RechargeQuote(
+        amountFcfa: json.intOr('amountFcfa', 0),
+        ticketsReceived: json.intOr('ticketsReceived', 0),
+        feeFcfa: json.intOr('feeFcfa', 0),
+        exact: json.boolOr('exact', true),
+        summaryLines: ((json['summaryLines'] ?? json['lines']) as List<dynamic>?)
+                ?.map((line) => line.toString())
+                .toList() ??
+            const [],
+      );
+}
+
+enum PaymentStatus { PENDING, SUCCESS, FAILED }
+
+PaymentStatus paymentStatusFromJson(String value) =>
+    PaymentStatus.values.firstWhere(
+      (e) => e.name.toUpperCase() == value.toUpperCase(),
+      orElse: () => PaymentStatus.PENDING,
+    );
+
+class PaymentModel {
+  final String id;
+  final String operator;
+  final int amountFcfa;
+  final int ticketsReceived;
+  final PaymentStatus status;
+  final String? fedapayReference;
+
+  PaymentModel({
+    required this.id,
+    required this.operator,
+    required this.amountFcfa,
+    required this.ticketsReceived,
+    required this.status,
+    this.fedapayReference,
+  });
+
+  factory PaymentModel.fromJson(Map<String, dynamic> json) => PaymentModel(
+        id: json.requireString('id'),
+        operator: json.stringOr('operator', 'FLOOZ'),
+        amountFcfa: json.intOr('amountFcfa', 0),
+        ticketsReceived: json.intOr('ticketsReceived', 0),
+        status: paymentStatusFromJson(json.stringOr('status', 'PENDING')),
+        fedapayReference: json.optionalString('fedapayReference'),
+      );
 }
 
 enum TransactionType {
@@ -316,20 +538,18 @@ class TransactionModel {
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) =>
       TransactionModel(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] != null
-            ? DateTime.parse(json['deletedAt'] as String)
-            : null,
-        userId: json['userId'] as String,
-        type: transactionTypeFromJson(json['type'] as String),
-        amount: (json['amount'] as num?)?.toInt() ?? 0,
-        status: transactionStatusFromJson(json['status'] as String),
-        reference: json['reference'] as String?,
-        counterpartyUserId: json['counterpartyUserId'] as String?,
-        orderId: json['orderId'] as String?,
-        metadata: json['metadata'] as String?,
+        id: json.requireString('id'),
+        createdAt: json.dateTimeOrNow('createdAt'),
+        updatedAt: json.dateTimeOrNow('updatedAt'),
+        deletedAt: json.optionalDateTime('deletedAt'),
+        userId: json.stringOr('userId', ''),
+        type: transactionTypeFromJson(json.stringOr('type', 'RECHARGE')),
+        amount: json.intOr('amount', 0),
+        status: transactionStatusFromJson(json.stringOr('status', 'PENDING')),
+        reference: json.optionalString('reference'),
+        counterpartyUserId: json.optionalString('counterpartyUserId'),
+        orderId: json.optionalString('orderId'),
+        metadata: json.optionalString('metadata'),
       );
 
   Map<String, dynamic> toJson() => {
@@ -376,23 +596,22 @@ class AmbassadorModel {
     required this.status,
   });
 
+  bool get isPending => status.toUpperCase() == 'PENDING';
+  bool get isActive => status.toUpperCase() == 'ACTIVE';
+
   factory AmbassadorModel.fromJson(Map<String, dynamic> json) =>
       AmbassadorModel(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] != null
-            ? DateTime.parse(json['deletedAt'] as String)
-            : null,
-        userId: json['userId'] as String,
-        promoCode: json['promoCode'] as String? ?? '',
-        totalReferrals: (json['totalReferrals'] as num?)?.toInt() ?? 0,
-        totalCommissionEarned:
-            (json['totalCommissionEarned'] as num?)?.toInt() ?? 0,
-        pendingCommission:
-            (json['pendingCommission'] as num?)?.toInt() ?? 0,
-        level: (json['level'] as num?)?.toInt() ?? 1,
-        status: json['status'] as String? ?? 'ACTIVE',
+        id: json.requireString('id'),
+        createdAt: json.dateTimeOrNow('createdAt'),
+        updatedAt: json.dateTimeOrNow('updatedAt'),
+        deletedAt: json.optionalDateTime('deletedAt'),
+        userId: json.stringOr('userId', ''),
+        promoCode: json.stringOr('promoCode', ''),
+        totalReferrals: json.intOr('totalReferrals', 0),
+        totalCommissionEarned: json.intOr('totalCommissionEarned', 0),
+        pendingCommission: json.intOr('pendingCommission', 0),
+        level: json.intOr('level', 1),
+        status: json.stringOr('status', 'PENDING'),
       );
 
   Map<String, dynamic> toJson() => {
@@ -455,19 +674,17 @@ class NotificationModel {
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) =>
       NotificationModel(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] != null
-            ? DateTime.parse(json['deletedAt'] as String)
-            : null,
-        userId: json['userId'] as String,
-        title: json['title'] as String,
-        body: json['body'] as String,
-        type: notificationTypeFromJson(json['type'] as String? ?? 'SYSTEM'),
-        isRead: json['isRead'] as bool? ?? false,
-        relatedId: json['relatedId'] as String?,
-        relatedType: json['relatedType'] as String?,
+        id: json.requireString('id'),
+        createdAt: json.dateTimeOrNow('createdAt'),
+        updatedAt: json.dateTimeOrNow('updatedAt'),
+        deletedAt: json.optionalDateTime('deletedAt'),
+        userId: json.stringOr('userId', ''),
+        title: json.stringOr('title', 'Notification'),
+        body: json.stringOr('body', ''),
+        type: notificationTypeFromJson(json.stringOr('type', 'SYSTEM')),
+        isRead: json.boolOr('isRead', false),
+        relatedId: json.optionalString('relatedId'),
+        relatedType: json.optionalString('relatedType'),
       );
 
   Map<String, dynamic> toJson() => {
@@ -507,14 +724,18 @@ class PaginatedResponse<T> {
     final dataList = (json['data'] as List<dynamic>?) ??
         (json['items'] as List<dynamic>?) ??
         [];
+    final meta = json['meta'] is Map
+        ? Map<String, dynamic>.from(json['meta'] as Map)
+        : json;
     return PaginatedResponse<T>(
       data: dataList
-          .map((e) => itemFromJson(e as Map<String, dynamic>))
+          .whereType<Map>()
+          .map((e) => itemFromJson(Map<String, dynamic>.from(e)))
           .toList(),
-      page: (json['page'] as num?)?.toInt() ?? 1,
-      limit: (json['limit'] as num?)?.toInt() ?? 10,
-      total: (json['total'] as num?)?.toInt() ?? 0,
-      totalPages: (json['totalPages'] as num?)?.toInt() ?? 1,
+      page: (meta['page'] as num?)?.toInt() ?? 1,
+      limit: (meta['limit'] as num?)?.toInt() ?? dataList.length,
+      total: (meta['total'] as num?)?.toInt() ?? dataList.length,
+      totalPages: (meta['totalPages'] as num?)?.toInt() ?? 1,
     );
   }
 }

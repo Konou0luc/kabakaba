@@ -70,7 +70,7 @@ class AmbassadorPresentationPage extends StatelessWidget {
                 const SizedBox(height: 32),
                 KabaButton(
                   text: 'Je suis intéressé !',
-                  onPressed: () => context.push('/ambassador-signup'),
+                  onPressed: () => context.push('/ambassador/conditions'),
                 ).animate().fadeIn(delay: 1000.ms).scale(),
               ],
             ),

@@ -1,53 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import '../theme/app_colors.dart';
+import 'kaba_snack.dart';
 
 class ToastHelper {
-  static void showSuccess(String message) {
-    Fluttertoast.showToast(
-      msg: message,
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      timeInSecForIosWeb: 1,
-      backgroundColor: AppColors.success,
-      textColor: Colors.white,
-      fontSize: 16.0,
-    );
-  }
+  static void showSuccess(String message) => KabaSnack.success(message);
 
-  static void showError(String message) {
-    Fluttertoast.showToast(
-      msg: message,
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      timeInSecForIosWeb: 1,
-      backgroundColor: AppColors.error,
-      textColor: Colors.white,
-      fontSize: 16.0,
-    );
-  }
+  static void showError(String message) => KabaSnack.error(message);
 
-  static void showInfo(String message) {
-    Fluttertoast.showToast(
-      msg: message,
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      timeInSecForIosWeb: 1,
-      backgroundColor: AppColors.primary,
-      textColor: Colors.white,
-      fontSize: 16.0,
-    );
-  }
+  static void showInfo(String message) => KabaSnack.info(message);
 
-  static void showWarning(String message) {
-    Fluttertoast.showToast(
-      msg: message,
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      timeInSecForIosWeb: 1,
-      backgroundColor: AppColors.warning,
-      textColor: Colors.white,
-      fontSize: 16.0,
-    );
-  }
+  static void showWarning(String message) => KabaSnack.warning(message);
 }

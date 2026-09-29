@@ -1,26 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/network/repositories.dart';
+import '../../../../core/network/session_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_radius.dart';
+import '../../../../core/utils/api_error.dart';
+import '../../../../core/utils/phone_e164.dart';
 import '../../../../core/utils/toast_helper.dart';
 import '../../../../shared/widgets/kaba_button.dart';
 import '../../../../shared/widgets/kaba_input.dart';
 import '../../../../shared/widgets/kaba_background.dart';
 
-class SendMoneyPage extends StatefulWidget {
+class SendMoneyPage extends ConsumerStatefulWidget {
   const SendMoneyPage({super.key});
 
   @override
-  State<SendMoneyPage> createState() => _SendMoneyPageState();
+  ConsumerState<SendMoneyPage> createState() => _SendMoneyPageState();
 }
 
-class _SendMoneyPageState extends State<SendMoneyPage> {
+class _SendMoneyPageState extends ConsumerState<SendMoneyPage> {
   final _phoneController = TextEditingController();
   final _amountController = TextEditingController();
   int? _selectedAmount;
+  bool _busy = false;
 
   final List<int> _quickAmounts = [500, 1000, 2000, 5000, 10000];
 
@@ -59,7 +65,7 @@ class _SendMoneyPageState extends State<SendMoneyPage> {
                       KabaInput(
                         controller: _phoneController,
                         label: 'Numéro de téléphone',
-                        hintText: '01 23 45 67 89',
+                        hintText: '90 12 34 56',
                         prefixIcon: const Icon(Icons.phone_rounded),
                         keyboardType: TextInputType.phone,
                       ).animate().fadeIn(delay: 200.ms).slideY(),
@@ -101,17 +107,39 @@ class _SendMoneyPageState extends State<SendMoneyPage> {
                 padding: const EdgeInsets.all(AppSpacing.l),
                 child: KabaButton(
                   text: 'Envoyer',
-                  onPressed: () {
-                    if (_phoneController.text.isNotEmpty &&
-                        _amountController.text.isNotEmpty) {
-                      ToastHelper.showSuccess(
-                        'Envoi de ${_amountController.text} FCFA réussi !',
-                      );
-                      context.pop();
-                    } else {
-                      ToastHelper.showError('Veuillez remplir tous les champs');
-                    }
-                  },
+                  isLoading: _busy,
+                  onPressed: _busy
+                      ? null
+                      : () async {
+                          final phone = toTogoE164(_phoneController.text);
+                          final amount = int.tryParse(
+                            _amountController.text.replaceAll(RegExp(r'\D'), ''),
+                          );
+                          if (phone.length < 12 || amount == null || amount <= 0) {
+                            ToastHelper.showError(
+                              'Veuillez remplir tous les champs',
+                            );
+                            return;
+                          }
+                          setState(() => _busy = true);
+                          try {
+                            await ref.read(walletRepositoryProvider).sendMoney(
+                              recipientPhone: phone,
+                              amount: amount,
+                            );
+                            ref.invalidate(meProvider);
+                            ref.invalidate(myTransactionsProvider);
+                            ToastHelper.showSuccess(
+                              'Envoi de $amount tickets réussi',
+                            );
+                            if (!context.mounted) return;
+                            context.pop();
+                          } catch (error) {
+                            ToastHelper.showError(apiErrorMessage(error));
+                          } finally {
+                            if (mounted) setState(() => _busy = false);
+                          }
+                        },
                 ).animate().fadeIn(delay: 500.ms),
               ),
             ],

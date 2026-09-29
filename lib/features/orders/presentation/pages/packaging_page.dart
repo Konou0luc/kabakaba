@@ -1,259 +1,95 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_text_styles.dart';
-import '../../../../core/theme/app_spacing.dart';
-import '../../../../shared/widgets/kaba_background.dart';
-import '../../../../shared/widgets/kaba_button.dart';
-import '../../../../shared/widgets/kaba_card.dart';
+import '../../../../core/network/session_providers.dart';
+import '../../../../core/utils/ticket_format.dart';
+import '../../../../features/cart/data/cart_provider.dart';
+import '../../../../shared/models/api_models.dart';
+import '../../../../shared/widgets/light_page_scaffold.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class PackagingPage extends StatefulWidget {
+class PackagingPage extends ConsumerWidget {
   final Map<String, dynamic> data;
 
   const PackagingPage({super.key, required this.data});
 
   @override
-  State<PackagingPage> createState() => _PackagingPageState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cart = ref.watch(cartProvider);
+    final firstItemId = cart.lines.isEmpty ? null : cart.lines.first.menuItemId;
+    final options = firstItemId == null
+        ? const <PackagingOptionModel>[]
+        : ref.watch(packagingOptionsProvider(firstItemId)).valueOrNull ??
+            const <PackagingOptionModel>[];
 
-class _PackagingPageState extends State<PackagingPage> {
-  String? _selectedPackaging;
-
-  final List<Map<String, dynamic>> packagingOptions = [
-    {
-      'id': 'surplace',
-      'name': 'Sur place',
-      'icon': Icons.restaurant,
-      'price': 0,
-    },
-    {'id': 'sachet', 'name': 'Sachet', 'icon': Icons.shopping_bag, 'price': 0},
-    {
-      'id': 'takeaway',
-      'name': 'Take away',
-      'icon': Icons.takeout_dining,
-      'price': 100,
-    },
-  ];
-
-  int get totalPrice =>
-      (widget.data['totalPrice'] as int) +
-      (_selectedPackaging == 'takeaway' ? 100 : 0);
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return KabaBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_ios,
-              color: AppColors.textPrimary(context),
-            ),
-            onPressed: () => context.pop(),
-          ),
-          title: Text(
-            'Conditionnement',
-            style: AppTextStyles.h3.copyWith(
-              color: AppColors.textPrimary(context),
-              fontWeight: FontWeight.bold,
+    return LightPageScaffold(
+      title: 'Conditionnement',
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+        children: [
+          Text(
+            'Choisis l’option proposée par la cantine',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: LightPageColors.text,
             ),
           ),
-          centerTitle: true,
-        ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(AppSpacing.l),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 14),
+          if (options.isEmpty)
+            Text(
+              'Aucune option d’emballage pour ce panier.',
+              style: GoogleFonts.plusJakartaSans(color: LightPageColors.muted),
+            )
+          else
+            ...options.map((option) {
+              final selected = cart.packagingOptionId == option.id;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: LightCard(
+                  onTap: () => ref.read(cartProvider.notifier).setPackaging(
+                    optionId: option.id,
+                    extra: option.extraCost,
+                  ),
+                  child: Row(
                     children: [
-                      Text(
-                        'Choisissez votre conditionnement',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: AppColors.grey,
+                      Icon(
+                        selected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_off,
+                        color: selected
+                            ? LightPageColors.orange
+                            : LightPageColors.muted,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          option.name,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.w800,
+                            color: LightPageColors.text,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.l),
-                      ...packagingOptions.map((option) {
-                        final index = packagingOptions.indexOf(option);
-                        final isSelected = _selectedPackaging == option['id'];
-
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            bottom: index == packagingOptions.length - 1
-                                ? 0
-                                : AppSpacing.m,
-                          ),
-                          child:
-                              KabaCard(
-                                    onTap: () {
-                                      setState(() {
-                                        _selectedPackaging =
-                                            option['id'] as String;
-                                      });
-                                    },
-                                    padding: const EdgeInsets.all(AppSpacing.s),
-                                    borderColor: isSelected
-                                        ? AppColors.primary
-                                        : Colors.transparent,
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: isDark
-                                                ? AppColors.primary.withValues(
-                                                    alpha: 0.1,
-                                                  )
-                                                : AppColors.primary.withValues(
-                                                    alpha: 0.1,
-                                                  ),
-                                            borderRadius: BorderRadius.circular(
-                                              100,
-                                            ),
-                                          ),
-                                          child: Icon(
-                                            option['icon'] as IconData,
-                                            color: isDark
-                                                ? AppColors.white
-                                                : AppColors.primary,
-                                            size: 20,
-                                          ),
-                                        ),
-                                        const SizedBox(width: AppSpacing.m),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                option['name'] as String,
-                                                style: AppTextStyles.bodyLarge
-                                                    .copyWith(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        if ((option['price'] as int) > 0)
-                                          Text(
-                                            '+${option['price']} tickets',
-                                            style: AppTextStyles.bodyMedium
-                                                .copyWith(
-                                                  color: AppColors.accent,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                          )
-                                        else
-                                          Text(
-                                            'Inclus',
-                                            style: AppTextStyles.bodyMedium
-                                                .copyWith(
-                                                  color: AppColors.grey,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                          ),
-                                        const SizedBox(width: AppSpacing.m),
-                                        Container(
-                                          width: 24,
-                                          height: 24,
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                              color: isSelected
-                                                  ? AppColors.primary
-                                                  : AppColors.grey,
-                                              width: 2,
-                                            ),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: isSelected
-                                              ? Center(
-                                                  child: Container(
-                                                    width: 12,
-                                                    height: 12,
-                                                    decoration:
-                                                        const BoxDecoration(
-                                                          color:
-                                                              AppColors.primary,
-                                                          shape:
-                                                              BoxShape.circle,
-                                                        ),
-                                                  ),
-                                                )
-                                              : null,
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                  .animate()
-                                  .fadeIn(
-                                    duration: 300.ms,
-                                    delay: (index * 100).ms,
-                                  )
-                                  .slideY(begin: 0.1, end: 0),
-                        );
-                      }),
-                      const SizedBox(height: AppSpacing.xl),
-                      KabaCard(
-                        padding: const EdgeInsets.all(AppSpacing.l),
-                        color: isDark
-                            ? AppColors.primary.withValues(alpha: 0.1)
-                            : AppColors.primary.withValues(alpha: 0.05),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Total final',
-                              style: AppTextStyles.bodyLarge.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              '$totalPrice FCFA',
-                              style: AppTextStyles.h2.copyWith(
-                                color: isDark
-                                    ? AppColors.white
-                                    : AppColors.primary,
-                              ),
-                            ),
-                          ],
+                      Text(
+                        option.extraCost == 0
+                            ? 'Inclus'
+                            : '+${formatTickets(option.extraCost)}',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: LightPageColors.muted,
                         ),
-                      ).animate().fadeIn(duration: 300.ms, delay: 200.ms),
+                      ),
                     ],
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.l),
-                child: KabaButton(
-                  text: 'Continuer',
-                  onPressed: _selectedPackaging != null
-                      ? () {
-                          context.push(
-                            '/payment',
-                            extra: {
-                              ...widget.data,
-                              'packaging': _selectedPackaging,
-                              'totalPrice': totalPrice,
-                            },
-                          );
-                        }
-                      : null,
-                ).animate().fadeIn(duration: 300.ms, delay: 300.ms),
-              ),
-            ],
+              );
+            }),
+          const SizedBox(height: 20),
+          LightButton(
+            text: 'Continuer',
+            onPressed: () => context.push('/cart'),
           ),
-        ),
+        ],
       ),
     );
   }

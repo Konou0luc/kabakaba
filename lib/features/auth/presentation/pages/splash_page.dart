@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/network/session_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
-import '../../data/auth_provider.dart';
+import '../../data/auth_repository.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});
@@ -26,8 +27,11 @@ class _SplashPageState extends ConsumerState<SplashPage> {
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted || _tapped) return;
 
-    final authState = ref.read(authProvider);
-    final isLoggedIn = authState == AuthState.authenticated;
+    final isLoggedIn = ref.read(authRepositoryProvider).isAuthenticated();
+    if (isLoggedIn) {
+      ref.invalidate(meProvider);
+    }
+    if (!mounted) return;
     context.go(isLoggedIn ? '/home' : '/onboarding');
   }
 
@@ -85,51 +89,13 @@ class _SplashPageState extends ConsumerState<SplashPage> {
                     .fadeIn(delay: 400.ms, duration: 600.ms)
                     .slideY(begin: 0.2, end: 0),
                 const SizedBox(height: 60),
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 280),
-                    child: TextButton(
-                      onPressed: () {
-                        _tapped = true;
-                        context.go('/home');
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.accent,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
-                        backgroundColor: Colors.white.withValues(alpha: 0.08),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: AppColors.line),
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.rocket_launch_rounded, size: 16),
-                          SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              '[DÉMO] Accueil',
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                Text(
+                  'Cantines du campus, en tickets',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Colors.white.withValues(alpha: 0.55),
                   ),
                 ).animate().fadeIn(delay: const Duration(milliseconds: 1200)),
-                const SizedBox(height: 12),
-                Text(
-                  '⚠️ Mode test uniquement — désactiver en prod',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    color: Colors.white.withValues(alpha: 0.4),
-                  ),
-                ).animate().fadeIn(delay: const Duration(milliseconds: 1400)),
               ],
             ),
           ),

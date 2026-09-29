@@ -1,16 +1,19 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../data/auth_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/utils/api_error.dart';
+import '../../../../core/utils/phone_e164.dart';
 import '../../../../core/utils/toast_helper.dart';
+import '../../../../features/profile/data/user_repository.dart';
 import '../../../../shared/widgets/kaba_button.dart';
 import '../../../../shared/widgets/kaba_input.dart';
 import '../../../../shared/widgets/auth_scaffold.dart';
+import '../../data/auth_provider.dart';
+import '../../data/signup_draft.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -21,42 +24,37 @@ class LoginPage extends ConsumerStatefulWidget {
 
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _phoneController = TextEditingController();
+  final _otpKey = GlobalKey<KabaOtpFieldState>();
   bool _isOTPSent = false;
-  int _timerSeconds = 38;
+  bool _isLoginMode = false;
+  bool _busy = false;
+  String _otpCode = '';
+  int _timerSeconds = 60;
   Timer? _timer;
-  final List<String> _otpCode = ['', '', '', ''];
-  final List<FocusNode> _otpFocusNodes = [
-    FocusNode(),
-    FocusNode(),
-    FocusNode(),
-    FocusNode(),
-  ];
-  final List<TextEditingController> _otpControllers = [
-    TextEditingController(),
-    TextEditingController(),
-    TextEditingController(),
-    TextEditingController(),
-  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final draft = ref.read(signupDraftProvider);
+    if (draft.phone.isNotEmpty) {
+      _phoneController.text = formatTogoDisplay(draft.phone);
+    }
+  }
 
   @override
   void dispose() {
     _timer?.cancel();
     _phoneController.dispose();
-    for (var node in _otpFocusNodes) {
-      node.dispose();
-    }
-    for (var ctrl in _otpControllers) {
-      ctrl.dispose();
-    }
     super.dispose();
   }
 
+  String get _e164 => toTogoE164(_phoneController.text);
+
   void _startTimer() {
-    setState(() {
-      _timerSeconds = 38;
-    });
+    setState(() => _timerSeconds = 60);
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
       setState(() {
         if (_timerSeconds > 0) {
           _timerSeconds--;
@@ -67,288 +65,259 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     });
   }
 
-  String _formatPhoneForDisplay(String phone) {
-    final digits = phone.replaceAll(RegExp(r'\D'), '');
-    if (digits.length <= 2) {
-      return digits;
+  Future<void> _sendOtp() async {
+    final digits = toTogoLocalDigits(_phoneController.text);
+    if (digits.length < 8) {
+      ToastHelper.showError('Veuillez entrer un numéro valide');
+      return;
     }
-    if (digits.length <= 4) {
-      return '${digits.substring(0, 2)} ${digits.substring(2)}';
+    setState(() => _busy = true);
+    try {
+      await ref.read(authProvider.notifier).sendOtp(phone: _e164);
+      ref.read(signupDraftProvider.notifier).setPhone(_e164);
+      if (!mounted) return;
+      setState(() {
+        _isOTPSent = true;
+        _otpCode = '';
+      });
+      _otpKey.currentState?.clear();
+      _startTimer();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _otpKey.currentState?.requestFocus();
+      });
+    } catch (error) {
+      ToastHelper.showError(apiErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-    if (digits.length <= 6) {
-      return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4)}';
-    }
-    return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4, 6)} ${digits.substring(6)}';
   }
 
-  Widget _buildPhoneStep() {
+  Future<void> _applySignupNames() async {
+    final draft = ref.read(signupDraftProvider);
+    final user = ref.read(currentUserProvider);
+    if (user == null || draft.firstName.trim().isEmpty) return;
+    if (user.firstName != null && user.firstName!.trim().isNotEmpty) return;
+    final updated = await ref
+        .read(userRepositoryProvider)
+        .updateUser(
+          id: user.id,
+          firstName: draft.firstName,
+          lastName: draft.lastName,
+        );
+    ref.read(authProvider.notifier).updateCurrentUser(updated);
+  }
+
+  Future<void> _verifyOtp() async {
+    final code = _otpCode.length == 6
+        ? _otpCode
+        : (_otpKey.currentState?.code ?? '');
+    if (code.length < 6) {
+      ToastHelper.showError('Entre les 6 chiffres du SMS');
+      return;
+    }
+    setState(() => _busy = true);
+    ref.read(signupDraftProvider.notifier).setOtp(code);
+
+    if (!_isLoginMode) {
+      if (mounted) setState(() => _busy = false);
+      context.go('/auth/identity');
+      return;
+    }
+
+    final draft = ref.read(signupDraftProvider);
+    try {
+      await ref
+          .read(authProvider.notifier)
+          .verifyOtp(
+            phone: _e164,
+            code: code,
+            campusId: draft.campusId,
+            referralCode: draft.referralCode,
+          );
+      await _applySignupNames();
+      if (!mounted) return;
+      if (draft.campusId != null) {
+        context.go('/auth/account-confirmation');
+      } else {
+        context.go('/home');
+      }
+    } catch (error) {
+      if (isCampusRequiredError(error)) {
+        if (!mounted) return;
+        context.go('/auth/identity');
+      } else {
+        ToastHelper.showError(apiErrorMessage(error));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _goBack() {
+    if (_isOTPSent) {
+      setState(() {
+        _isOTPSent = false;
+        _otpCode = '';
+        _timer?.cancel();
+      });
+      _otpKey.currentState?.clear();
+      return;
+    }
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/onboarding');
+    }
+  }
+
+  Widget _phoneBody() {
+    return KabaPhoneField(
+      label: 'Numéro de téléphone',
+      controller: _phoneController,
+    ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.05, end: 0);
+  }
+
+  Widget _phoneFooter() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        KabaInput(
-          label: 'Numéro de téléphone',
-          hintText: '90 12 34 56',
-          controller: _phoneController,
-          keyboardType: TextInputType.phone,
-          prefixWidget: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '🇹🇬 +228',
-                style: AppTextStyles.inputText.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 9),
-              Container(width: 1, height: 20, color: AppColors.line),
-              const SizedBox(width: 10),
-            ],
-          ),
-          maxLength: 8,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          onChanged: (val) {
-            final formatted = _formatPhoneForDisplay(val);
-            if (formatted != _phoneController.text) {
-              _phoneController.value = TextEditingValue(
-                text: formatted,
-                selection: TextSelection.collapsed(offset: formatted.length),
-              );
-            }
-          },
-        ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.05, end: 0),
-        const SizedBox(height: 28),
         KabaButton(
           text: 'Continuer',
-          onPressed: () {
-            final digits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
-            if (digits.length < 8) {
-              ToastHelper.showError('Veuillez entrer un numéro valide');
-              return;
-            }
-            setState(() => _isOTPSent = true);
-            _startTimer();
-            final currentContext = context;
-            Future.delayed(const Duration(milliseconds: 300), () {
-              if (!currentContext.mounted) return;
-              FocusScope.of(currentContext).requestFocus(_otpFocusNodes[0]);
-            });
-          },
+          isLoading: _busy,
+          onPressed: _busy ? null : _sendOtp,
           trailingIcon: const Icon(Icons.arrow_forward_rounded, size: 16),
         ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1, end: 0),
-        const SizedBox(height: 14),
-        Center(
-          child: TextButton(
-            onPressed: () {
-              ToastHelper.showInfo('🦄 Mode DÉMO : saut complet du flow');
-              ref.read(authProvider.notifier).continueAsDemoUser();
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                context.go('/home');
-              });
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.accent,
-              textStyle: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            child: const Text('[DÉMO] Aller directement à l\'accueil'),
-          ),
-        ),
-        const SizedBox(height: 2),
-        Center(
-          child: RichText(
-            text: TextSpan(
+        const SizedBox(height: 16),
+        GestureDetector(
+          onTap: () => setState(() => _isLoginMode = !_isLoginMode),
+          child: Text.rich(
+            TextSpan(
               style: AppTextStyles.footLink,
-              children: [
-                const TextSpan(text: 'Déjà un compte ? '),
-                TextSpan(
-                  text: 'Se connecter',
-                  style: AppTextStyles.footLink.copyWith(
-                    color: AppColors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+              children: _isLoginMode
+                  ? [
+                      const TextSpan(text: 'Pas encore de compte ? '),
+                      TextSpan(
+                        text: 'Créer un compte',
+                        style: AppTextStyles.footLink.copyWith(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ]
+                  : [
+                      const TextSpan(text: 'Déjà un compte ? '),
+                      TextSpan(
+                        text: 'Se connecter',
+                        style: AppTextStyles.footLink.copyWith(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
             ),
+            textAlign: TextAlign.center,
           ),
         ).animate().fadeIn(delay: 300.ms),
-        const SizedBox(height: 8),
       ],
     );
   }
 
-  Widget _buildOtpStep() {
+  Widget _otpBody() {
     return Column(
       children: [
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(4, (index) {
-            final isFilled = _otpCode[index].isNotEmpty;
-            final hasCursor = _otpFocusNodes[index].hasFocus && !isFilled;
-            return Padding(
-              padding: EdgeInsets.only(right: index < 3 ? 9 : 0),
-              child: GestureDetector(
-                onTap: () {
-                  FocusScope.of(context).requestFocus(_otpFocusNodes[index]);
-                },
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    OTPBox(
-                      value: _otpCode[index],
-                      isFilled: isFilled,
-                      hasCursor: hasCursor,
-                    ),
-                    SizedBox(
-                      width: 40,
-                      height: 48,
-                      child: TextField(
-                        controller: _otpControllers[index],
-                        focusNode: _otpFocusNodes[index],
-                        keyboardType: TextInputType.number,
-                        maxLength: 1,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.transparent,
-                        ),
-                        decoration: const InputDecoration(
-                          counterText: '',
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        onChanged: (value) {
-                          setState(() {
-                            _otpCode[index] = value;
-                          });
-                          if (value.isNotEmpty && index < 3) {
-                            FocusScope.of(
-                              context,
-                            ).requestFocus(_otpFocusNodes[index + 1]);
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.05, end: 0),
-        const SizedBox(height: 16),
+        Text(
+          AppTextStyles.fieldLabelText('Code SMS'),
+          style: AppTextStyles.fieldLabel,
+        ),
+        const SizedBox(height: 12),
+        KabaOtpField(
+          key: _otpKey,
+          enabled: !_busy,
+          onChanged: (value) => _otpCode = value,
+          onCompleted: (value) {
+            _otpCode = value;
+            _verifyOtp();
+          },
+        ),
+        const SizedBox(height: 18),
         Center(
-          child: RichText(
-            text: TextSpan(
-              style: AppTextStyles.footLink.copyWith(fontSize: 12.5),
-              children: [
-                const TextSpan(text: 'Renvoyer le code dans '),
-                TextSpan(
-                  text: '00:${_timerSeconds.toString().padLeft(2, '0')}',
-                  style: const TextStyle(
-                    color: AppColors.accent,
-                    fontWeight: FontWeight.w700,
+          child: _timerSeconds > 0
+              ? RichText(
+                  text: TextSpan(
+                    style: AppTextStyles.footLink.copyWith(fontSize: 12.5),
+                    children: [
+                      const TextSpan(text: 'Renvoyer le code dans '),
+                      TextSpan(
+                        text: '00:${_timerSeconds.toString().padLeft(2, '0')}',
+                        style: const TextStyle(
+                          color: AppColors.accent,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : TextButton(
+                  onPressed: _busy ? null : _sendOtp,
+                  child: Text(
+                    'Renvoyer le code',
+                    style: AppTextStyles.footLink.copyWith(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ).animate().fadeIn(delay: 200.ms),
-        const SizedBox(height: 6),
-        if (_timerSeconds == 0)
-          Center(
-            child: TextButton(
-              onPressed: () {
-                _startTimer();
-                ToastHelper.showInfo('Code renvoyé !');
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.white,
-                textStyle: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              child: const Text('Renvoyer le code'),
-            ),
-          ),
-        const SizedBox(height: 36),
-        KabaButton(
-          text: 'Vérifier le code',
-          onPressed: () {
-            final code = _otpCode.join();
-            if (code.length < 4) {
-              ToastHelper.showError('Veuillez entrer le code complet');
-              return;
-            }
-            ToastHelper.showSuccess('Vérification réussie !');
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              context.go('/auth/identity');
-            });
-          },
-        ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1, end: 0),
-        const SizedBox(height: 10),
-        Center(
-          child: TextButton(
-            onPressed: () {
-              ToastHelper.showInfo('🦄 MODE DÉMO : OTP bypassé');
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                context.go('/auth/identity');
-              });
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.accent,
-              textStyle: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            child: const Text('[DÉMO] Sauter la vérification OTP'),
-          ),
-        ),
-        const SizedBox(height: 4),
+        ).animate().fadeIn(delay: 160.ms),
       ],
     );
+  }
+
+  Widget _otpFooter() {
+    return KabaButton(
+      text: _isLoginMode ? 'Vérifier le code' : 'Continuer',
+      isLoading: _busy,
+      onPressed: _busy ? null : _verifyOtp,
+    ).animate().fadeIn(delay: 240.ms).slideY(begin: 0.1, end: 0);
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<SignupDraft>(signupDraftProvider, (previous, next) {
+      if (next.phone.isEmpty && _isOTPSent) {
+        setState(() {
+          _isOTPSent = false;
+          _otpCode = '';
+        });
+        _otpKey.currentState?.clear();
+      }
+    });
+
+    final totalSteps = _isLoginMode ? 2 : 5;
+
     if (!_isOTPSent) {
       return AuthScaffold(
         currentStep: 1,
-        totalSteps: 5,
+        totalSteps: totalSteps,
         heroIcon: Icons.smartphone_rounded,
-        heroTitle: 'Crée ton compte',
-        heroSubtitle:
-            'Entre ton numéro pour recevoir un code de vérification par SMS.',
-        showBackButton: false,
-        body: _buildPhoneStep(),
-      );
-    } else {
-      return AuthScaffold(
-        currentStep: 2,
-        totalSteps: 5,
-        heroIcon: Icons.lock_rounded,
-        heroTitle: 'Vérifie ton numéro',
-        heroSubtitle: 'Code envoyé par SMS au +228 ${_phoneController.text}.',
+        heroTitle: _isLoginMode ? 'Connecte-toi' : 'Crée ton compte',
+        heroSubtitle: _isLoginMode
+            ? 'Entre ton numéro pour recevoir un code de connexion par SMS.'
+            : 'Entre ton numéro pour recevoir un code de vérification par SMS.',
         showBackButton: true,
-        onBack: () {
-          setState(() {
-            _isOTPSent = false;
-            _timer?.cancel();
-            for (var i = 0; i < 4; i++) {
-              _otpCode[i] = '';
-              _otpControllers[i].clear();
-            }
-          });
-        },
-        body: _buildOtpStep(),
+        onBack: _goBack,
+        body: _phoneBody(),
+        footer: _phoneFooter(),
       );
     }
+    return AuthScaffold(
+      currentStep: 2,
+      totalSteps: totalSteps,
+      heroIcon: Icons.lock_rounded,
+      heroTitle: 'Vérifie ton numéro',
+      heroSubtitle: 'Code envoyé par SMS au +228 ${_phoneController.text}.',
+      showBackButton: true,
+      onBack: _goBack,
+      body: _otpBody(),
+      footer: _otpFooter(),
+    );
   }
 }

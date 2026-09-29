@@ -1,184 +1,142 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_text_styles.dart';
-import '../../../../core/theme/app_spacing.dart';
-import '../../../../shared/widgets/kaba_background.dart';
-import '../../../../shared/widgets/kaba_card.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/network/session_providers.dart';
+import '../../../../features/auth/data/auth_provider.dart';
+import '../../../../shared/widgets/light_page_scaffold.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class CampusPage extends StatefulWidget {
+class CampusPage extends ConsumerWidget {
   const CampusPage({super.key});
 
   @override
-  State<CampusPage> createState() => _CampusPageState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user =
+        ref.watch(meProvider).valueOrNull ?? ref.watch(currentUserProvider);
+    final campuses = ref.watch(campusesListProvider).valueOrNull ?? const [];
+    final current = campuses.where((c) => c.id == user?.campusId).toList();
+    final currentName = current.isNotEmpty ? current.first.name : 'Non défini';
+    final currentCity = current.isNotEmpty
+        ? '${current.first.institution} · ${current.first.city}'
+        : 'Campus rattaché à ton compte';
 
-class _CampusPageState extends State<CampusPage> {
-  String _selectedCampus = 'UCAO';
-
-  final List<Map<String, String>> _campuses = [
-    {
-      'name': 'UCAO',
-      'location': 'Sanguéra, Togo',
-    },
-    {
-      'name': 'Université de Lomé (UL)',
-      'location': 'Lomé, Togo',
-    },
-    {
-      'name': 'Université de Kara (UK)',
-      'location': 'Kara, Togo',
-    },
-    {
-      'name': 'ESA',
-      'location': 'Lomé, Togo',
-    },
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Campus'),
-        elevation: 0,
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-      ),
-      extendBodyBehindAppBar: true,
-      body: KabaBackground(
-        child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(AppSpacing.l),
-            children: [
-              // Current campus card
-              KabaCard(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Campus actuel',
-                      style: AppTextStyles.labelMedium.copyWith(
-                        color: AppColors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(
-                              alpha: isDark ? 0.2 : 0.1,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.school_rounded,
-                            color: isDark ? AppColors.white : AppColors.primary,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _selectedCampus,
-                                style: AppTextStyles.h3,
-                              ),
-                              Text(
-                                'Changer de campus → sur dossier (carte scolaire)',
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: AppColors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+    return LightPageScaffold(
+      title: 'Campus',
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+        children: [
+          LightCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Campus actuel',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: LightPageColors.muted,
+                  ),
                 ),
-              ).animate().fadeIn().slideY(begin: -0.2),
-              const SizedBox(height: 24),
-              Text(
-                'Sélectionner un campus',
-                style: AppTextStyles.h3,
-              ).animate().fadeIn(delay: 200.ms),
-              const SizedBox(height: 16),
-              ..._campuses.asMap().entries.map((entry) {
-                final index = entry.key;
-                final campus = entry.value;
-                final isSelected = campus['name'] == _selectedCampus;
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: KabaCard(
-                    padding: const EdgeInsets.all(16),
-                    onTap: () {
-                      setState(() {
-                        _selectedCampus = campus['name']!;
-                      });
-                    },
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isSelected
-                                ? AppColors.primary
-                                : Colors.transparent,
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppColors.primary
-                                  : AppColors.grey,
-                              width: 2,
-                            ),
-                          ),
-                          child: isSelected
-                              ? const Icon(
-                                  Icons.check,
-                                  color: AppColors.white,
-                                  size: 16,
-                                )
-                              : null,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                campus['name']!,
-                                style: AppTextStyles.bodyLarge.copyWith(
-                                  fontWeight: isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                              Text(
-                                campus['location']!,
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: AppColors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ).animate().fadeIn(delay: (400 + index * 100).ms).slideX(begin: 0.1),
-                );
-              }),
-            ],
+                const SizedBox(height: 10),
+                Text(
+                  currentName,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: LightPageColors.text,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  currentCity,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    color: LightPageColors.muted,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Un changement de campus se fait sur dossier (carte scolaire).',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11.5,
+                    height: 1.4,
+                    color: LightPageColors.text2,
+                  ),
+                ),
+              ],
+            ),
+          ).animate().fadeIn(),
+          const SizedBox(height: 14),
+          LightButton(
+            text: 'Contacter le support',
+            icon: Icons.support_agent_rounded,
+            onPressed: () => context.push('/help-support'),
           ),
-        ),
+          const SizedBox(height: 20),
+          Text(
+            'Campus disponibles',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: LightPageColors.text,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (campuses.isEmpty)
+            Text(
+              'Aucun campus publié pour le moment.',
+              style: GoogleFonts.plusJakartaSans(
+                color: LightPageColors.muted,
+              ),
+            )
+          else
+            ...campuses.map((campus) {
+              final selected = campus.id == user?.campusId;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: LightCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      Icon(
+                        selected
+                            ? Icons.check_circle_rounded
+                            : Icons.school_outlined,
+                        color: selected
+                            ? LightPageColors.orange
+                            : LightPageColors.muted,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              campus.name,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: LightPageColors.text,
+                              ),
+                            ),
+                            Text(
+                              '${campus.institution} · ${campus.city}',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11.5,
+                                color: LightPageColors.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+        ],
       ),
     );
   }

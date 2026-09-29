@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/utils/api_error.dart';
 import '../../../../core/utils/toast_helper.dart';
+import '../../../../features/profile/data/user_repository.dart';
 import '../../../../shared/widgets/kaba_button.dart';
 import '../../../../shared/widgets/kaba_input.dart';
 import '../../../../shared/widgets/auth_scaffold.dart';
+import '../../data/auth_provider.dart';
+import '../../data/signup_draft.dart';
 
-class ReferralPage extends StatefulWidget {
+class ReferralPage extends ConsumerStatefulWidget {
   const ReferralPage({super.key});
 
   @override
-  State<ReferralPage> createState() => _ReferralPageState();
+  ConsumerState<ReferralPage> createState() => _ReferralPageState();
 }
 
-class _ReferralPageState extends State<ReferralPage> {
+class _ReferralPageState extends ConsumerState<ReferralPage> {
   final _referralController = TextEditingController();
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -23,10 +29,52 @@ class _ReferralPageState extends State<ReferralPage> {
     super.dispose();
   }
 
-  void _goToConfirmation() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+  Future<void> _createAccount({required bool skipReferral}) async {
+    final draft = ref.read(signupDraftProvider);
+    if (draft.phone.isEmpty || draft.otp.isEmpty || draft.campusId == null) {
+      ToastHelper.showError('Session incomplète. Repars du numéro.');
+      context.go('/auth');
+      return;
+    }
+    setState(() => _busy = true);
+    final referral = skipReferral ? '' : _referralController.text.trim();
+    ref.read(signupDraftProvider.notifier).setReferral(referral);
+    try {
+      final response = await ref
+          .read(authProvider.notifier)
+          .verifyOtp(
+            phone: draft.phone,
+            code: draft.otp,
+            campusId: draft.campusId,
+            referralCode: referral.isEmpty ? null : referral,
+          );
+      final user = response?.user;
+      if (user != null &&
+          (user.firstName == null || user.firstName!.trim().isEmpty)) {
+        final updated = await ref
+            .read(userRepositoryProvider)
+            .updateUser(
+              id: user.id,
+              firstName: draft.firstName,
+              lastName: draft.lastName,
+            );
+        ref.read(authProvider.notifier).updateCurrentUser(updated);
+      }
+      if (!mounted) return;
       context.go('/auth/account-confirmation');
-    });
+    } catch (error) {
+      if (isOtpInvalidError(error)) {
+        ToastHelper.showError(
+          'Le code SMS a expiré. Repars du numéro pour en recevoir un nouveau.',
+        );
+        ref.read(signupDraftProvider.notifier).clear();
+        if (mounted) context.go('/auth');
+        return;
+      }
+      ToastHelper.showError(apiErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -36,8 +84,7 @@ class _ReferralPageState extends State<ReferralPage> {
       totalSteps: 5,
       heroIcon: Icons.card_giftcard_outlined,
       heroTitle: 'Qui t\'a invité ?',
-      heroSubtitle:
-          'Code d\'un ambassadeur kabakaba — entièrement facultatif.',
+      heroSubtitle: 'Code d\'un ambassadeur kabakaba — entièrement facultatif.',
       onBack: () => context.pop(),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,6 +93,7 @@ class _ReferralPageState extends State<ReferralPage> {
             label: 'Code de parrainage (optionnel)',
             hintText: 'ex. KOFFI2026',
             controller: _referralController,
+            textCapitalization: TextCapitalization.characters,
             prefixIcon: const Icon(Icons.card_giftcard_outlined, size: 16),
           ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.05, end: 0),
           const SizedBox(height: 6),
@@ -53,31 +101,25 @@ class _ReferralPageState extends State<ReferralPage> {
             message:
                 'Une fois ton compte créé, ce code ne pourra plus être modifié.',
           ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.05, end: 0),
-          const SizedBox(height: 30),
+        ],
+      ),
+      footer: Column(
+        children: [
           KabaButton(
             text: 'Créer mon compte',
-            onPressed: () {
-              if (_referralController.text.trim().isNotEmpty) {
-                ToastHelper.showSuccess('Code de parrainage accepté !');
-              }
-              _goToConfirmation();
-            },
+            isLoading: _busy,
+            onPressed: _busy ? null : () => _createAccount(skipReferral: false),
           ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1, end: 0),
           const SizedBox(height: 14),
-          Center(
-            child: TextButton(
-              onPressed: _goToConfirmation,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.muted,
-                textStyle: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                ),
+          GestureDetector(
+            onTap: _busy ? null : () => _createAccount(skipReferral: true),
+            child: Text(
+              'Passer cette étape',
+              style: AppTextStyles.footLink.copyWith(
+                fontWeight: FontWeight.w600,
               ),
-              child: const Text('Passer cette étape'),
             ),
           ).animate().fadeIn(delay: 400.ms),
-          const SizedBox(height: 8),
         ],
       ),
     );

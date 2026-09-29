@@ -12,7 +12,6 @@ class KabaBackground extends StatelessWidget {
 
     return Stack(
       children: [
-        // Background color/gradient
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
@@ -27,7 +26,6 @@ class KabaBackground extends StatelessWidget {
             ),
           ),
         ),
-        // Background circles
         Positioned(
           top: -100,
           right: -40,
@@ -36,8 +34,8 @@ class KabaBackground extends StatelessWidget {
             height: 300,
             decoration: BoxDecoration(
               color: isDark
-                  ? const Color(0xFF4A3B6B).withValues(alpha: 0.5)
-                  : AppColors.primary.withValues(alpha: 0.18),
+                  ? AppColors.accent.withValues(alpha: 0.16)
+                  : AppColors.accent.withValues(alpha: 0.10),
               shape: BoxShape.circle,
             ),
           ),
@@ -50,13 +48,12 @@ class KabaBackground extends StatelessWidget {
             height: 350,
             decoration: BoxDecoration(
               color: isDark
-                  ? const Color(0xFF1B2A6B).withValues(alpha: 0.4)
-                  : AppColors.accent.withValues(alpha: 0.1),
+                  ? AppColors.white.withValues(alpha: 0.04)
+                  : AppColors.white.withValues(alpha: 0.04),
               shape: BoxShape.circle,
             ),
           ),
         ),
-        // New circle - middle left
         Positioned(
           top: 200,
           left: -80,
@@ -65,13 +62,12 @@ class KabaBackground extends StatelessWidget {
             height: 250,
             decoration: BoxDecoration(
               color: isDark
-                  ? const Color(0xFF7B5D9E).withValues(alpha: 0.3)
-                  : AppColors.primary.withValues(alpha: 0.15),
+                  ? AppColors.accent.withValues(alpha: 0.08)
+                  : AppColors.primary.withValues(alpha: 0.06),
               shape: BoxShape.circle,
             ),
           ),
         ),
-        // Page content
         child,
       ],
     );

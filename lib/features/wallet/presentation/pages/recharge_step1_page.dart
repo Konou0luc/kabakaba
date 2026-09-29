@@ -1,14 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../shared/widgets/light_page_scaffold.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class RechargeStep1Page extends StatelessWidget {
+import '../../../../core/network/session_providers.dart';
+import '../../../../core/utils/ticket_format.dart';
+import '../../../../features/auth/data/auth_provider.dart';
+import '../../../../shared/widgets/light_page_scaffold.dart';
+
+class RechargeStep1Page extends ConsumerWidget {
   const RechargeStep1Page({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user =
+        ref.watch(meProvider).valueOrNull ?? ref.watch(currentUserProvider);
+    final balance = formatTickets(user?.walletBalance ?? 0);
+
     return LightPageScaffold(
       title: 'Recharger le portefeuille',
       onBack: () => context.go('/wallet'),
@@ -19,10 +28,10 @@ class RechargeStep1Page extends StatelessWidget {
           children: [
             _buildStepIndicator(step: 1, total: 3),
             const SizedBox(height: 16),
-            _buildHeroCard(),
+            _buildHeroCard(balance),
             const SizedBox(height: 20),
             Text(
-              'À qui voulez-vous envoyer des tickets ?',
+              'Que veux-tu faire ?',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
@@ -32,23 +41,23 @@ class RechargeStep1Page extends StatelessWidget {
             const SizedBox(height: 12),
             _buildBeneficiaryOption(
               icon: Icons.person_outline_rounded,
-              title: 'Mon compte',
-              subtitle: 'Ajouter des tickets à mon portefeuille',
+              title: 'Recharger mon compte',
+              subtitle: 'Payer par Flooz ou Mixx, tickets crédités ici',
               isSelected: true,
               onTap: () => context.push('/recharge/step2/self'),
             ).animate().fadeIn(delay: 50.ms, begin: 0.9).slideX(begin: -0.05),
             const SizedBox(height: 12),
             _buildBeneficiaryOption(
               icon: Icons.person_add_alt_rounded,
-              title: 'Un ami',
-              subtitle: 'Envoyer des tickets à un proche',
+              title: 'Envoyer à un ami',
+              subtitle: 'Transférer tes tickets déjà crédités',
               isSelected: false,
-              onTap: () => context.push('/recharge/step2/friend'),
+              onTap: () => context.push('/send-money'),
             ).animate().fadeIn(delay: 100.ms, begin: 0.9).slideX(begin: -0.05),
             const SizedBox(height: 28),
-            LightHintBox(
+            const LightHintBox(
               text:
-                  'Les tickets achetés sont non remboursables. Vérifiez bien le numéro avant de valider.',
+                  'Le montant saisi est ce que tu paies. Les frais Mobile Money sont inclus, les tickets sont calculés par le serveur.',
             ),
           ],
         ),
@@ -61,17 +70,14 @@ class RechargeStep1Page extends StatelessWidget {
       children: [
         ...List.generate(total, (i) {
           final isActive = i < step;
-          final isCurrent = i == step - 1;
           return Expanded(
             child: Container(
               margin: EdgeInsets.only(right: i == total - 1 ? 0 : 8),
               height: 4,
               decoration: BoxDecoration(
-                color: isActive ? LightPageColors.orange : LightPageColors.border,
+                color:
+                    isActive ? LightPageColors.orange : LightPageColors.border,
                 borderRadius: BorderRadius.circular(3),
-                border: isCurrent && !isActive
-                    ? Border.all(color: LightPageColors.orange, width: 1)
-                    : null,
               ),
             ),
           );
@@ -86,7 +92,7 @@ class RechargeStep1Page extends StatelessWidget {
     );
   }
 
-  Widget _buildHeroCard() {
+  Widget _buildHeroCard(String balance) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -104,105 +110,64 @@ class RechargeStep1Page extends StatelessWidget {
           ),
         ],
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned(
-            top: -20,
-            right: -20,
-            child: Container(
-              width: 90,
-              height: 90,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: LightPageColors.orange.withValues(alpha: 0.16),
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet_outlined,
+                  color: Color(0xFFF07840),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.14),
-                        width: 1,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.account_balance_wallet_outlined,
-                      color: Color(0xFFF07840),
-                      size: 20,
+                  Text(
+                    'Solde actuel',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.55),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Solde actuel',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white.withValues(alpha: 0.55),
-                          letterSpacing: 0.04,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '5 000 tickets',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 2),
+                  Text(
+                    '$balance tickets',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.security_rounded,
-                      color: Colors.white.withValues(alpha: 0.7),
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Paiement sécurisé 3DS - Aucune carte stockée',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
-                          color: Colors.white.withValues(alpha: 0.7),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              'Flooz et Mixx uniquement · 600 à 10 500 FCFA',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11,
+                color: Colors.white.withValues(alpha: 0.7),
+              ),
+            ),
           ),
         ],
       ),
@@ -225,8 +190,8 @@ class RechargeStep1Page extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: isSelected
-                ? LightPageColors.orangeLight.withValues(alpha: 0.7)
-                : Colors.white,
+                ? LightPageColors.orangeLight
+                : LightPageColors.white,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isSelected
@@ -234,13 +199,6 @@ class RechargeStep1Page extends StatelessWidget {
                   : LightPageColors.border,
               width: 1.5,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF1B2A6B).withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
           child: Row(
             children: [
@@ -285,26 +243,9 @@ class RechargeStep1Page extends StatelessWidget {
                   ],
                 ),
               ),
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isSelected ? LightPageColors.orange : Colors.white,
-                  border: Border.all(
-                    color: isSelected
-                        ? LightPageColors.orange
-                        : LightPageColors.border,
-                    width: 2,
-                  ),
-                ),
-                child: isSelected
-                    ? const Icon(
-                        Icons.check_rounded,
-                        size: 14,
-                        color: Colors.white,
-                      )
-                    : null,
+              Icon(
+                Icons.chevron_right_rounded,
+                color: LightPageColors.muted,
               ),
             ],
           ),

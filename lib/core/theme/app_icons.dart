@@ -6,6 +6,7 @@ class AppIcons {
   static const IconData home = Icons.home_rounded;
   static const IconData search = Icons.search_rounded;
   static const IconData cart = Icons.shopping_cart_rounded;
+  static const IconData orders = Icons.receipt_long_rounded;
   static const IconData wallet = Icons.account_balance_wallet_rounded;
   static const IconData profile = Icons.person_rounded;
   static const IconData settings = Icons.settings_rounded;
