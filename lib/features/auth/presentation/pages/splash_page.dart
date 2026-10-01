@@ -5,7 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/network/session_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/push/push_notifications.dart';
 import '../../data/auth_repository.dart';
+import '../../data/onboarding_prefs.dart';
+import '../../../../core/theme/theme_provider.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});
@@ -30,9 +33,15 @@ class _SplashPageState extends ConsumerState<SplashPage> {
     final isLoggedIn = ref.read(authRepositoryProvider).isAuthenticated();
     if (isLoggedIn) {
       ref.invalidate(meProvider);
+      await ref.read(pushNotificationsProvider).syncToken();
     }
     if (!mounted) return;
-    context.go(isLoggedIn ? '/home' : '/onboarding');
+    if (isLoggedIn) {
+      context.go('/home');
+      return;
+    }
+    final seen = hasSeenOnboarding(ref.read(sharedPreferencesProvider));
+    context.go(seen ? '/auth' : '/onboarding');
   }
 
   @override

@@ -116,17 +116,24 @@ final orderDetailProvider = FutureProvider.family<OrderModel, String>((
   return ref.read(orderRepositoryProvider).getOrderById(id);
 });
 
+bool _sessionRefreshBusy = false;
+
 Future<void> refreshStudentSession(WidgetRef ref) async {
-  ref.invalidate(meProvider);
-  ref.invalidate(myOrdersProvider);
-  ref.invalidate(myTransactionsProvider);
-  ref.invalidate(myNotificationsProvider);
-  ref.invalidate(vendorsListProvider);
-  await Future.wait([
-    ref.read(meProvider.future),
-    ref.read(myOrdersProvider.future),
-    ref.read(myTransactionsProvider.future),
-    ref.read(myNotificationsProvider.future),
-    ref.read(vendorsListProvider.future),
-  ]);
+  if (_sessionRefreshBusy) return;
+  _sessionRefreshBusy = true;
+  try {
+    ref.invalidate(meProvider);
+    await ref.read(meProvider.future);
+    ref.invalidate(myOrdersProvider);
+    await ref.read(myOrdersProvider.future);
+    ref.invalidate(myTransactionsProvider);
+    await ref.read(myTransactionsProvider.future);
+    ref.invalidate(myNotificationsProvider);
+    await ref.read(myNotificationsProvider.future);
+    ref.invalidate(vendorsListProvider);
+    await ref.read(vendorsListProvider.future);
+    ref.invalidate(myAmbassadorProvider);
+  } finally {
+    _sessionRefreshBusy = false;
+  }
 }

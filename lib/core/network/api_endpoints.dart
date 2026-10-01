@@ -56,4 +56,6 @@ class ApiEndpoints {
 
   static const String notifications = '/notifications';
   static String notificationById(String id) => '/notifications/$id';
+
+  static const String devices = '/devices';
 }

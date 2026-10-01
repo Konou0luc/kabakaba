@@ -18,17 +18,24 @@ class KabaFieldShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final fill = focused
+        ? (dark ? AppColors.fieldFocus : const Color(0xFFE8ECFF))
+        : (dark ? AppColors.field : const Color(0xFFF0F3FA));
+    final border = focused
+        ? AppColors.accent
+        : (dark ? AppColors.line : const Color(0x1A1B2A6B));
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
-      height: height,
-      clipBehavior: Clip.hardEdge,
+      constraints: BoxConstraints(minHeight: height),
+      alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: focused ? AppColors.accent : AppColors.line,
+          color: border,
           width: focused ? 2 : 1.5,
         ),
-        color: focused ? AppColors.fieldFocus : AppColors.field,
+        color: fill,
         boxShadow: focused
             ? [
                 BoxShadow(
@@ -111,80 +118,119 @@ class _KabaInputState extends State<KabaInput> {
 
   @override
   Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         if (widget.label != null) ...[
           Text(
             AppTextStyles.fieldLabelText(widget.label!),
-            style: AppTextStyles.fieldLabel,
+            style: AppTextStyles.fieldLabel.copyWith(
+              color: onSurface.withValues(alpha: 0.55),
+            ),
           ),
           const SizedBox(height: 7),
         ],
         KabaFieldShell(
           focused: _focusNode.hasFocus,
-          child: TextFormField(
-            controller: widget.controller,
-            obscureText: widget.obscureText,
-            keyboardType: widget.keyboardType,
-            validator: widget.validator,
-            onChanged: widget.onChanged,
-            maxLength: widget.maxLength,
-            focusNode: _focusNode,
-            autofocus: widget.autofocus,
-            textCapitalization: widget.textCapitalization,
-            inputFormatters: widget.inputFormatters != null
-                ? List<TextInputFormatter>.from(widget.inputFormatters!)
-                : null,
-            style: AppTextStyles.inputText,
-            scrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
-            decoration: InputDecoration(
-              hintText: widget.hintText,
-              hintStyle: AppTextStyles.inputPlaceholder,
-              isCollapsed: true,
-              isDense: true,
-              prefixIcon: widget.prefixIcon != null
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: IconTheme(
-                        data: const IconThemeData(color: AppColors.muted),
-                        child: widget.prefixIcon!,
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              visualDensity: VisualDensity.compact,
+              inputDecorationTheme: const InputDecorationTheme(
+                filled: false,
+                isDense: true,
+                isCollapsed: true,
+                floatingLabelBehavior: FloatingLabelBehavior.never,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(width: 14),
+                  if (widget.prefixIcon != null) ...[
+                    IconTheme(
+                      data: IconThemeData(
+                        color: onSurface.withValues(alpha: 0.55),
+                        size: 16,
                       ),
-                    )
-                  : null,
-              prefixIconConstraints: const BoxConstraints(
-                minWidth: 0,
-                minHeight: 0,
-              ),
-              prefix: widget.prefixWidget,
-              prefixText: widget.prefixText,
-              prefixStyle: AppTextStyles.inputText.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-              suffixIcon: widget.suffixIcon != null
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: IconTheme(
-                        data: const IconThemeData(color: AppColors.muted),
-                        child: widget.suffixIcon!,
+                      child: widget.prefixIcon!,
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  if (widget.prefixWidget != null) ...[
+                    widget.prefixWidget!,
+                    const SizedBox(width: 8),
+                  ],
+                  if (widget.prefixText != null) ...[
+                    Text(
+                      widget.prefixText!,
+                      style: AppTextStyles.inputText.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: onSurface,
+                        height: 1.25,
                       ),
-                    )
-                  : null,
-              suffixIconConstraints: const BoxConstraints(
-                minWidth: 0,
-                minHeight: 0,
-              ),
-              counterText: '',
-              filled: false,
-              fillColor: Colors.transparent,
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              focusedErrorBorder: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: TextFormField(
+                      controller: widget.controller,
+                      obscureText: widget.obscureText,
+                      keyboardType: widget.keyboardType,
+                      validator: widget.validator,
+                      onChanged: widget.onChanged,
+                      maxLength: widget.maxLength,
+                      focusNode: _focusNode,
+                      autofocus: widget.autofocus,
+                      textCapitalization: widget.textCapitalization,
+                      textAlignVertical: TextAlignVertical.center,
+                      inputFormatters: widget.inputFormatters != null
+                          ? List<TextInputFormatter>.from(
+                              widget.inputFormatters!,
+                            )
+                          : null,
+                      style: AppTextStyles.inputText.copyWith(
+                        color: onSurface,
+                        height: 1.25,
+                      ),
+                      scrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
+                      decoration: InputDecoration.collapsed(
+                        hintText: widget.hintText,
+                        hintStyle: AppTextStyles.inputPlaceholder.copyWith(
+                          color: onSurface.withValues(alpha: 0.4),
+                        ),
+                      ).copyWith(
+                        counterText: '',
+                        errorStyle: const TextStyle(
+                          fontSize: 11,
+                          height: 1.2,
+                          color: AppColors.error,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (widget.suffixIcon != null) ...[
+                    const SizedBox(width: 8),
+                    IconTheme(
+                      data: IconThemeData(
+                        color: onSurface.withValues(alpha: 0.55),
+                        size: 20,
+                      ),
+                      child: widget.suffixIcon!,
+                    ),
+                  ],
+                  const SizedBox(width: 14),
+                ],
               ),
             ),
           ),
@@ -237,66 +283,94 @@ class _KabaPhoneFieldState extends State<KabaPhoneField> {
 
   @override
   Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         if (widget.label != null) ...[
           Text(
             AppTextStyles.fieldLabelText(widget.label!),
-            style: AppTextStyles.fieldLabel,
+            style: AppTextStyles.fieldLabel.copyWith(
+              color: onSurface.withValues(alpha: 0.55),
+            ),
           ),
           const SizedBox(height: 7),
         ],
         KabaFieldShell(
           focused: _focusNode.hasFocus,
-          child: Listener(
-            behavior: HitTestBehavior.opaque,
-            onPointerDown: (_) {
-              if (!_focusNode.hasFocus) {
-                _focusNode.requestFocus();
-              }
-            },
-            child: Row(
-              children: [
-                const SizedBox(width: 14),
-                Text(
-                  '🇹🇬 +228',
-                  style: AppTextStyles.inputText.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: 9),
-                Container(width: 1, height: 20, color: AppColors.line),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: widget.controller,
-                    focusNode: _focusNode,
-                    keyboardType: TextInputType.phone,
-                    textInputAction: TextInputAction.done,
-                    inputFormatters: const [TogoPhoneInputFormatter()],
-                    cursorColor: AppColors.accent,
-                    style: AppTextStyles.inputText,
-                    scrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
-                    decoration: InputDecoration(
-                      hintText: '90 12 34 56',
-                      hintStyle: AppTextStyles.inputPlaceholder,
-                      filled: false,
-                      fillColor: Colors.transparent,
-                      isCollapsed: true,
-                      isDense: true,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      errorBorder: InputBorder.none,
-                      focusedErrorBorder: InputBorder.none,
-                      disabledBorder: InputBorder.none,
-                      contentPadding: EdgeInsets.only(right: 14),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              visualDensity: VisualDensity.compact,
+              inputDecorationTheme: const InputDecorationTheme(
+                filled: false,
+                isDense: true,
+                isCollapsed: true,
+                floatingLabelBehavior: FloatingLabelBehavior.never,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (_) {
+                if (!_focusNode.hasFocus) {
+                  _focusNode.requestFocus();
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(width: 14),
+                    Text(
+                      '+228',
+                      style: AppTextStyles.inputText.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: onSurface,
+                        height: 1.25,
+                      ),
                     ),
-                    onChanged: widget.onChanged,
-                  ),
+                    const SizedBox(width: 9),
+                    Container(
+                      width: 1,
+                      height: 18,
+                      color: onSurface.withValues(alpha: 0.18),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: widget.controller,
+                        focusNode: _focusNode,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.done,
+                        textAlignVertical: TextAlignVertical.center,
+                        inputFormatters: const [TogoPhoneInputFormatter()],
+                        cursorColor: AppColors.accent,
+                        style: AppTextStyles.inputText.copyWith(
+                          color: onSurface,
+                          height: 1.25,
+                        ),
+                        scrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
+                        decoration: InputDecoration.collapsed(
+                          hintText: '90 12 34 56',
+                          hintStyle: AppTextStyles.inputPlaceholder.copyWith(
+                            color: onSurface.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        onChanged: widget.onChanged,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

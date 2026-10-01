@@ -40,17 +40,22 @@ class KabaCard extends StatelessWidget {
             ? Border.all(color: borderColor!, width: 2)
             : null,
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: AppRadius.largeBorderRadius,
-          child: Padding(
-            padding: padding ?? const EdgeInsets.all(16.0),
-            child: child,
-          ),
-        ),
-      ),
+      child: onTap == null
+          ? Padding(
+              padding: padding ?? const EdgeInsets.all(16.0),
+              child: child,
+            )
+          : Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: AppRadius.largeBorderRadius,
+                child: Padding(
+                  padding: padding ?? const EdgeInsets.all(16.0),
+                  child: child,
+                ),
+              ),
+            ),
     );
   }
 }

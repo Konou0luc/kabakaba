@@ -13,7 +13,7 @@ import 'token_storage.dart';
 class ApiClient {
   final Dio _dio;
   final TokenStorage _tokenStorage;
-  Future<bool>? _refreshInFlight;
+  static Future<bool>? _sharedRefresh;
 
   ApiClient(this._dio, this._tokenStorage) {
     _setupDio();
@@ -38,10 +38,14 @@ class ApiClient {
           if (_shouldSkipAuthRetryPath(options.path)) {
             return handler.next(options);
           }
+          final pendingRefresh = _sharedRefresh;
+          if (pendingRefresh != null) {
+            await pendingRefresh;
+          }
           final current = _tokenStorage.getAccessToken();
           if (current != null &&
               JwtPayload.tryParse(current)?.isExpired(
-                    skew: const Duration(seconds: 45),
+                    skew: const Duration(minutes: 10),
                   ) ==
                   true) {
             await _refreshToken();
@@ -124,12 +128,12 @@ class ApiClient {
   }
 
   Future<bool> _refreshToken() {
-    final inFlight = _refreshInFlight;
+    final inFlight = _sharedRefresh;
     if (inFlight != null) return inFlight;
     final future = _refreshTokenOnce().whenComplete(() {
-      _refreshInFlight = null;
+      _sharedRefresh = null;
     });
-    _refreshInFlight = future;
+    _sharedRefresh = future;
     return future;
   }
 
@@ -173,6 +177,10 @@ class ApiClient {
       return false;
     } on DioException catch (error) {
       if (error.response?.statusCode == 401) {
+        final current = _tokenStorage.getRefreshToken();
+        if (current != null && current != refreshToken) {
+          return true;
+        }
         await _tokenStorage.clearTokens();
         kabaOnSessionInvalid?.call();
       }

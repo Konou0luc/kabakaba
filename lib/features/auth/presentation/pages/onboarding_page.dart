@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/theme_provider.dart';
 import '../../../../shared/widgets/kaba_button.dart';
+import '../../data/onboarding_prefs.dart';
 
-class OnboardingPage extends StatefulWidget {
+class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
 
   @override
-  State<OnboardingPage> createState() => _OnboardingPageState();
+  ConsumerState<OnboardingPage> createState() => _OnboardingPageState();
 }
 
-class _OnboardingPageState extends State<OnboardingPage> {
+class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   int _currentPage = 0;
   final _pageController = PageController();
 
@@ -35,6 +38,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
       image: 'assets/images/onbording.webp',
     ),
   ];
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _finish() async {
+    await markOnboardingSeen(ref.read(sharedPreferencesProvider));
+    if (!mounted) return;
+    context.go('/auth');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -119,9 +134,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           text: 'Passer',
                           type: KabaButtonType.ghost,
                           fullWidth: false,
-                          onPressed: () {
-                            context.go('/auth');
-                          },
+                          onPressed: _finish,
                         ),
                     ],
                   ),
@@ -153,7 +166,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         : 'Suivant',
                     onPressed: () {
                       if (_currentPage == _items.length - 1) {
-                        context.go('/auth');
+                        _finish();
                       } else {
                         _pageController.nextPage(
                           duration: 300.ms,

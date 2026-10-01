@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/theme/app_theme.dart';
 
 class AuthScaffold extends StatelessWidget {
   final int currentStep;
@@ -33,7 +34,9 @@ class AuthScaffold extends StatelessWidget {
     final bottomSafe = media.padding.bottom;
     final keyboardOpen = media.viewInsets.bottom > 0;
 
-    return Scaffold(
+    return Theme(
+      data: AppTheme.dark,
+      child: Scaffold(
       backgroundColor: AppColors.indigoDark,
       resizeToAvoidBottomInset: true,
       body: SafeArea(
@@ -94,6 +97,7 @@ class AuthScaffold extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

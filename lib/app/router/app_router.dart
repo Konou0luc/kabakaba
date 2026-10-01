@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/data/auth_provider.dart';
 import '../../features/auth/data/auth_repository.dart';
+import '../../features/auth/data/onboarding_prefs.dart';
+import '../../core/theme/theme_provider.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/onboarding_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
@@ -85,6 +87,12 @@ GoRouter router(Ref ref) {
       final isGoingToPublic = _isPublicRoute(path);
 
       if (!isLoggedIn && !isGoingToPublic) {
+        return '/auth';
+      }
+
+      if (!isLoggedIn &&
+          path == '/onboarding' &&
+          hasSeenOnboarding(ref.read(sharedPreferencesProvider))) {
         return '/auth';
       }
 

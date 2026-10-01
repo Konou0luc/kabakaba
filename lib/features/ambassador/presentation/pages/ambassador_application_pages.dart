@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -183,13 +185,37 @@ class AmbassadorPromoCodePage extends StatefulWidget {
 }
 
 class _AmbassadorPromoCodePageState extends State<AmbassadorPromoCodePage> {
-  final _controller = TextEditingController();
+  late final TextEditingController _controller;
   bool? _isAvailable;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing =
+        (widget.applicationData.promoCode ?? '').trim().toUpperCase();
+    _controller = TextEditingController(text: existing);
+    if (existing.length >= 4) {
+      _isAvailable = true;
+    }
+  }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  String _generatePromoCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = Random();
+    return List.generate(6, (index) => chars[random.nextInt(chars.length)])
+        .join();
+  }
+
+  void _handleGenerateCode() {
+    final code = _generatePromoCode();
+    _controller.text = code;
+    setState(() => _isAvailable = true);
   }
 
   void _checkCode() {
@@ -198,22 +224,29 @@ class _AmbassadorPromoCodePageState extends State<AmbassadorPromoCodePage> {
       ToastHelper.showError('Le code doit comporter au moins 4 caractères.');
       return;
     }
-    setState(() => _isAvailable = code.length >= 4);
+    _controller.value = _controller.value.copyWith(
+      text: code,
+      selection: TextSelection.collapsed(offset: code.length),
+    );
+    setState(() => _isAvailable = true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final carriedFromPrevious =
+        (widget.applicationData.promoCode ?? '').trim().isNotEmpty;
     return _AmbassadorScaffold(
       title: 'Code promo',
       step: 3,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _FlowHeading(
+          _FlowHeading(
             icon: Icons.local_offer_outlined,
             title: 'Choisis ton code promo',
-            subtitle:
-                'Il doit être unique, mémorisable et contenir entre 4 et 12 caractères.',
+            subtitle: carriedFromPrevious
+                ? 'Le code généré à l’étape précédente a été repris. Tu peux le garder ou en choisir un autre.'
+                : 'Il doit être unique, mémorisable et contenir entre 4 et 12 caractères.',
           ),
           const SizedBox(height: 26),
           KabaCard(
@@ -230,7 +263,15 @@ class _AmbassadorPromoCodePageState extends State<AmbassadorPromoCodePage> {
                     FilteringTextInputFormatter.allow(RegExp('[a-zA-Z0-9]')),
                   ],
                   onChanged: (_) => setState(() => _isAvailable = null),
-                  suffixIcon: TextButton(
+                  suffixIcon: GestureDetector(
+                    onTap: _handleGenerateCode,
+                    child: const Icon(Icons.autorenew_rounded, size: 20),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
                     onPressed: _checkCode,
                     child: const Text('Vérifier'),
                   ),

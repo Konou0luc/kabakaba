@@ -360,6 +360,36 @@ final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
   return NotificationRepository(apiClient);
 });
 
+class DeviceRepository {
+  final ApiClient _apiClient;
+
+  DeviceRepository(this._apiClient);
+
+  Future<void> register({
+    required String deviceToken,
+    required String platform,
+  }) async {
+    await _apiClient.post(
+      ApiEndpoints.devices,
+      data: {'deviceToken': deviceToken, 'platform': platform},
+    );
+  }
+
+  Future<void> unregister(String deviceToken) async {
+    try {
+      await _apiClient.delete(
+        ApiEndpoints.devices,
+        queryParameters: {'deviceToken': deviceToken},
+      );
+    } catch (_) {}
+  }
+}
+
+final deviceRepositoryProvider = Provider<DeviceRepository>((ref) {
+  final apiClient = ref.watch(apiClientProvider);
+  return DeviceRepository(apiClient);
+});
+
 class ReviewRepository {
   final ApiClient _apiClient;
 

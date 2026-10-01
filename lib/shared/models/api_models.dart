@@ -637,11 +637,30 @@ enum NotificationType {
   SYSTEM,
 }
 
-NotificationType notificationTypeFromJson(String value) =>
-    NotificationType.values.firstWhere(
-      (e) => e.name.toUpperCase() == value.toUpperCase(),
-      orElse: () => NotificationType.SYSTEM,
-    );
+NotificationType notificationTypeFromJson(String value, [String title = '']) {
+  final needle = title.toLowerCase();
+  if (needle.contains('commande')) return NotificationType.ORDER;
+  if (needle.contains('recharge') ||
+      needle.contains('tickets reçus') ||
+      needle.contains('tickets recus')) {
+    return NotificationType.PAYMENT;
+  }
+  if (needle.contains('ambassadeur') || needle.contains('promo')) {
+    return NotificationType.AMBASSADOR;
+  }
+  switch (value.toUpperCase()) {
+    case 'ORDER':
+      return NotificationType.ORDER;
+    case 'PAYMENT':
+      return NotificationType.PAYMENT;
+    case 'AMBASSADOR':
+      return NotificationType.AMBASSADOR;
+    case 'PROMOTION':
+      return NotificationType.PROMOTION;
+    default:
+      return NotificationType.SYSTEM;
+  }
+}
 
 String notificationTypeToJson(NotificationType type) => type.name;
 
@@ -680,8 +699,11 @@ class NotificationModel {
         deletedAt: json.optionalDateTime('deletedAt'),
         userId: json.stringOr('userId', ''),
         title: json.stringOr('title', 'Notification'),
-        body: json.stringOr('body', ''),
-        type: notificationTypeFromJson(json.stringOr('type', 'SYSTEM')),
+        body: json.stringOr('body', json.stringOr('message', '')),
+        type: notificationTypeFromJson(
+          json.stringOr('type', 'SYSTEM'),
+          json.stringOr('title', ''),
+        ),
         isRead: json.boolOr('isRead', false),
         relatedId: json.optionalString('relatedId'),
         relatedType: json.optionalString('relatedType'),

@@ -14,6 +14,8 @@ import '../../../../shared/widgets/kaba_input.dart';
 import '../../../../shared/widgets/auth_scaffold.dart';
 import '../../data/auth_provider.dart';
 import '../../data/signup_draft.dart';
+import '../../data/onboarding_prefs.dart';
+import '../../../../core/theme/theme_provider.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -165,7 +167,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
     if (context.canPop()) {
       context.pop();
-    } else {
+      return;
+    }
+    final seen = hasSeenOnboarding(ref.read(sharedPreferencesProvider));
+    if (!seen) {
       context.go('/onboarding');
     }
   }

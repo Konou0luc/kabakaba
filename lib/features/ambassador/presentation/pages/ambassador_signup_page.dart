@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -18,7 +17,7 @@ import '../../../../core/utils/toast_helper.dart';
 import '../../../../shared/widgets/kaba_button.dart';
 import '../../../../shared/widgets/kaba_card.dart';
 import '../../../../shared/widgets/kaba_input.dart';
-import '../../../../shared/widgets/kaba_background.dart';
+import '../../../../shared/widgets/light_page_scaffold.dart';
 
 class AmbassadorSignupPage extends ConsumerStatefulWidget {
   const AmbassadorSignupPage({super.key});
@@ -150,37 +149,33 @@ class _AmbassadorSignupPageState extends ConsumerState<AmbassadorSignupPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('Inscription Ambassadeur'),
-        elevation: 0,
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-      ),
-      body: KabaBackground(
-        child: SafeArea(
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              padding: const EdgeInsets.all(24.0),
-              children: [
-                Text(
-                  'Complétez votre inscription',
-                  style: AppTextStyles.h2,
-                ).animate().fadeIn().slideX(begin: -0.1),
-                const SizedBox(height: 8),
-                Text(
-                  'Ces informations nous permettront de créer votre compte ambassadeur.',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.grey,
-                  ),
-                ).animate().fadeIn(delay: 200.ms).slideX(begin: -0.1),
-                const SizedBox(height: 32),
-                KabaCard(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return LightPageScaffold(
+      title: 'Inscription ambassadeur',
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          children: [
+            Text(
+              'Complétez votre inscription',
+              style: AppTextStyles.h2.copyWith(color: onSurface),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Ces informations nous permettront de créer votre compte ambassadeur.',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 20),
+            KabaCard(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                       KabaInput(
                         label: 'Nom complet',
                         hintText: 'Ex: John Doe',
@@ -192,19 +187,19 @@ class _AmbassadorSignupPageState extends ConsumerState<AmbassadorSignupPage> {
                           }
                           return null;
                         },
-                      ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.1),
+                      ),
                       const SizedBox(height: 16),
                       KabaInput(
                         label: 'Adresse email (optionnel)',
                         hintText: 'Ex: john@example.com',
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                      ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.1),
+                      ),
                       const SizedBox(height: 16),
                       KabaPhoneField(
                         label: 'Numéro de téléphone',
                         controller: _phoneController,
-                      ).animate().fadeIn(delay: 800.ms).slideY(begin: 0.1),
+                      ),
                       const SizedBox(height: 16),
                       Builder(
                         builder: (context) {
@@ -247,24 +242,84 @@ class _AmbassadorSignupPageState extends ConsumerState<AmbassadorSignupPage> {
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              DropdownButtonFormField<FacultyModel>(
-                                initialValue: _selectedFaculty,
-                                hint: const Text('Choisis ta faculté'),
-                                items: faculties
-                                    .map(
-                                      (faculty) => DropdownMenuItem(
-                                        value: faculty,
-                                        child: Text(faculty.name),
+                              Theme(
+                                data: Theme.of(context).copyWith(
+                                  visualDensity: VisualDensity.compact,
+                                  inputDecorationTheme:
+                                      const InputDecorationTheme(
+                                    filled: false,
+                                    isDense: true,
+                                    isCollapsed: true,
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? AppColors.field
+                                        : const Color(0xFFF0F3FA),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? AppColors.line
+                                          : const Color(0x1A1B2A6B),
+                                    ),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  child: DropdownButtonFormField<FacultyModel>(
+                                    initialValue: _selectedFaculty,
+                                    hint: Text(
+                                      'Choisis ta faculté',
+                                      style: AppTextStyles.bodyMedium.copyWith(
+                                        color: onSurface.withValues(alpha: 0.45),
                                       ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) =>
-                                    setState(() => _selectedFaculty = value),
+                                    ),
+                                    isExpanded: true,
+                                    isDense: true,
+                                    icon: Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      color: onSurface.withValues(alpha: 0.55),
+                                    ),
+                                    dropdownColor:
+                                        Theme.of(context).cardColor,
+                                    style: AppTextStyles.bodyMedium.copyWith(
+                                      color: onSurface,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      filled: false,
+                                      isDense: true,
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    items: faculties
+                                        .map(
+                                          (faculty) => DropdownMenuItem(
+                                            value: faculty,
+                                            child: Text(faculty.name),
+                                          ),
+                                        )
+                                        .toList(),
+                                    onChanged: (value) => setState(
+                                      () => _selectedFaculty = value,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ],
                           );
                         },
-                      ).animate().fadeIn(delay: 900.ms).slideY(begin: 0.1),
+                      ),
                       const SizedBox(height: 16),
                       // Student ID photo
                       Column(
@@ -348,17 +403,16 @@ class _AmbassadorSignupPageState extends ConsumerState<AmbassadorSignupPage> {
                             ),
                           ),
                         ],
-                      ).animate().fadeIn(delay: 1100.ms).slideY(begin: 0.1),
+                      ),
                       const SizedBox(height: 16),
                       KabaInput(
                         label: 'Code promo personnalisé',
                         hintText: 'Ex: JOHND20',
                         controller: _promoCodeController,
                         keyboardType: TextInputType.text,
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.autorenew_rounded),
-                          onPressed: _handleGenerateCode,
-                          tooltip: 'Générer un code',
+                        suffixIcon: GestureDetector(
+                          onTap: _handleGenerateCode,
+                          child: const Icon(Icons.autorenew_rounded, size: 20),
                         ),
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(
@@ -374,22 +428,20 @@ class _AmbassadorSignupPageState extends ConsumerState<AmbassadorSignupPage> {
                           }
                           return null;
                         },
-                      ).animate().fadeIn(delay: 1200.ms).slideY(begin: 0.1),
+                      ),
                     ],
                   ),
-                ).animate().fadeIn(delay: 300.ms),
-                const SizedBox(height: 32),
+                ),
+                const SizedBox(height: 24),
                 KabaButton(
                   text: 'Envoyer ma demande',
                   onPressed: _handleSignup,
                   isLoading: _isLoading,
-                ).animate().fadeIn(delay: 1200.ms).scale(),
+                ),
                 const SizedBox(height: 24),
               ],
             ),
           ),
-        ),
-      ),
     );
   }
 }

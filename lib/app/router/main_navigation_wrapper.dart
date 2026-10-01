@@ -27,6 +27,7 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper> {
   Map<String, OrderStatus> _lastStatuses = {};
   int _lastUnread = 0;
   bool _booted = false;
+  bool _ticking = false;
 
   int _selectedIndex(String path) {
     if (path.startsWith('/order-history') || path.startsWith('/order-detail')) {
@@ -70,7 +71,7 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper> {
   @override
   void initState() {
     super.initState();
-    _poll = Timer.periodic(const Duration(seconds: 20), (_) => _tick());
+    _poll = Timer.periodic(const Duration(seconds: 60), (_) => _tick());
   }
 
   @override
@@ -80,7 +81,8 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper> {
   }
 
   Future<void> _tick() async {
-    if (!mounted) return;
+    if (!mounted || _ticking) return;
+    _ticking = true;
     try {
       await refreshStudentSession(ref);
       final orders = ref.read(myOrdersProvider).valueOrNull ?? const [];
@@ -102,7 +104,12 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper> {
           }
         }
         if (unread > _lastUnread && mounted) {
-          showKabaSnack(context, 'Nouvelle notification');
+          final newest = [...notifs]
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          final preview = newest.isNotEmpty
+              ? newest.first.title
+              : 'Nouvelle notification';
+          showKabaSnack(context, preview);
         }
       }
       _lastStatuses = {
@@ -110,7 +117,10 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper> {
       };
       _lastUnread = unread;
       _booted = true;
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _ticking = false;
+    }
   }
 
   @override

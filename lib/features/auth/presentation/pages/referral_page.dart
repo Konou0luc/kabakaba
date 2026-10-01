@@ -95,12 +95,12 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
             controller: _referralController,
             textCapitalization: TextCapitalization.characters,
             prefixIcon: const Icon(Icons.card_giftcard_outlined, size: 16),
-          ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.05, end: 0),
+          ),
           const SizedBox(height: 6),
           const HintBox(
             message:
                 'Une fois ton compte créé, ce code ne pourra plus être modifié.',
-          ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.05, end: 0),
+          ),
         ],
       ),
       footer: Column(

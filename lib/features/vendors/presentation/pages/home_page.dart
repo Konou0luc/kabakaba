@@ -25,9 +25,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     final user =
         ref.watch(meProvider).valueOrNull ?? ref.watch(currentUserProvider);
     final vendors = ref.watch(vendorsListProvider).valueOrNull ?? const [];
-    final unread = (ref.watch(myNotificationsProvider).valueOrNull ?? const [])
-        .where((item) => !item.isRead)
-        .isNotEmpty;
+    final unreadCount =
+        (ref.watch(myNotificationsProvider).valueOrNull ?? const [])
+            .where((item) => !item.isRead)
+            .length;
     final firstName = user?.displayFirstName ?? 'Étudiant';
     final balance = formatTickets(user?.walletBalance ?? 0);
 
@@ -37,7 +38,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         bottom: false,
         child: Column(
           children: [
-            _buildHero(firstName, balance, unread),
+            _buildHero(firstName, balance, unreadCount),
             Expanded(
               child: Transform.translate(
                 offset: const Offset(0, -18),
@@ -113,7 +114,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Widget _buildHero(String firstName, String balance, bool unread) {
+  Widget _buildHero(String firstName, String balance, int unreadCount) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 36),
@@ -178,11 +179,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                         icon: Icons.search_rounded,
                         onTap: () => context.push('/canteen-list'),
                       ),
-                      const SizedBox(width: 9),
-                      _buildIconButton(
-                        icon: Icons.notifications_outlined,
+                      const SizedBox(width: 10),
+                      _HomeBellButton(
+                        unreadCount: unreadCount,
                         onTap: () => context.push('/notifications'),
-                        hasBadge: unread,
                       ),
                     ],
                   ).animate().fadeIn().slideX(begin: 0.05, end: 0),
@@ -341,38 +341,18 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget _buildIconButton({
     required IconData icon,
     required VoidCallback onTap,
-    bool hasBadge = false,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 36,
-        height: 36,
+        width: 42,
+        height: 42,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
+          shape: BoxShape.circle,
           color: AppColors.white.withValues(alpha: 0.08),
-          border: Border.all(color: AppColors.line),
+          border: Border.all(color: AppColors.white.withValues(alpha: 0.14)),
         ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Icon(icon, color: AppColors.white, size: 16),
-            if (hasBadge)
-              Positioned(
-                top: 6,
-                right: 6,
-                child: Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.accent,
-                    border: Border.all(color: AppColors.primary, width: 1.5),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        child: Icon(icon, color: AppColors.white, size: 19),
       ),
     );
   }
@@ -695,5 +675,158 @@ class _HelpRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _HomeBellButton extends StatelessWidget {
+  final int unreadCount;
+  final VoidCallback onTap;
+
+  const _HomeBellButton({
+    required this.unreadCount,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasUnread = unreadCount > 0;
+    final label = unreadCount > 9 ? '9+' : '$unreadCount';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 46,
+        height: 46,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: hasUnread
+                      ? AppColors.accent.withValues(alpha: 0.18)
+                      : AppColors.white.withValues(alpha: 0.08),
+                  border: Border.all(
+                    color: hasUnread
+                        ? AppColors.accent.withValues(alpha: 0.55)
+                        : AppColors.white.withValues(alpha: 0.14),
+                  ),
+                  boxShadow: hasUnread
+                      ? [
+                          BoxShadow(
+                            color: AppColors.accent.withValues(alpha: 0.35),
+                            blurRadius: 16,
+                            spreadRadius: -2,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Center(
+                  child: CustomPaint(
+                    size: const Size(20, 20),
+                    painter: _BellPainter(
+                      color: hasUnread ? AppColors.accent : AppColors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (hasUnread)
+              Positioned(
+                top: -1,
+                right: -1,
+                child: Container(
+                  height: 18,
+                  constraints: const BoxConstraints(minWidth: 18),
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.indigoDark, width: 1.6),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accent.withValues(alpha: 0.5),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    label,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                      color: AppColors.white,
+                    ),
+                  ),
+                )
+                    .animate(
+                      onPlay: (controller) => controller.repeat(reverse: true),
+                    )
+                    .scale(
+                      begin: const Offset(1, 1),
+                      end: const Offset(1.08, 1.08),
+                      duration: 1400.ms,
+                      curve: Curves.easeInOut,
+                    ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BellPainter extends CustomPainter {
+  final Color color;
+
+  const _BellPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.7
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final w = size.width;
+    final h = size.height;
+    final path = Path()
+      ..moveTo(w * 0.28, h * 0.38)
+      ..cubicTo(w * 0.28, h * 0.16, w * 0.72, h * 0.16, w * 0.72, h * 0.38)
+      ..lineTo(w * 0.78, h * 0.68)
+      ..quadraticBezierTo(w * 0.80, h * 0.78, w * 0.70, h * 0.78)
+      ..lineTo(w * 0.30, h * 0.78)
+      ..quadraticBezierTo(w * 0.20, h * 0.78, w * 0.22, h * 0.68)
+      ..close();
+
+    canvas.drawPath(path, stroke);
+
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: Offset(w * 0.50, h * 0.78),
+        width: w * 0.22,
+        height: h * 0.18,
+      ),
+      0.12,
+      2.90,
+      false,
+      stroke,
+    );
+
+    canvas.drawLine(
+      Offset(w * 0.50, h * 0.14),
+      Offset(w * 0.50, h * 0.22),
+      stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _BellPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
