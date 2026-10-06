@@ -23,6 +23,7 @@ class UserModel {
   final UserRole role;
   final String? campusId;
   final int walletBalance;
+  final int walletHeld;
   final int escrowBalance;
   final bool isSuspended;
   final DateTime? suspensionUntil;
@@ -45,6 +46,7 @@ class UserModel {
     required this.role,
     this.campusId,
     required this.walletBalance,
+    this.walletHeld = 0,
     required this.escrowBalance,
     required this.isSuspended,
     this.suspensionUntil,
@@ -54,6 +56,11 @@ class UserModel {
     required this.notifyAmbassador,
     required this.notifyPromotions,
   });
+
+  int get availableTickets {
+    final available = walletBalance - walletHeld;
+    return available < 0 ? 0 : available;
+  }
 
   String get displayFirstName {
     final name = firstName?.trim();
@@ -90,6 +97,7 @@ class UserModel {
         role: userRoleFromJson(json.stringOr('role', 'STUDENT')),
         campusId: json.optionalString('campusId'),
         walletBalance: json.intOr('walletBalance', 0),
+        walletHeld: json.intOr('walletHeld', 0),
         escrowBalance: json.intOr('escrowBalance', 0),
         isSuspended: json.boolOr('isSuspended', false),
         suspensionUntil: json.optionalDateTime('suspensionUntil'),
@@ -113,6 +121,7 @@ class UserModel {
         'role': userRoleToJson(role),
         if (campusId != null) 'campusId': campusId,
         'walletBalance': walletBalance,
+        'walletHeld': walletHeld,
         'escrowBalance': escrowBalance,
         'isSuspended': isSuspended,
         if (suspensionUntil != null)
@@ -137,6 +146,7 @@ class UserModel {
     UserRole? role,
     String? campusId,
     int? walletBalance,
+    int? walletHeld,
     int? escrowBalance,
     bool? isSuspended,
     DateTime? suspensionUntil,
@@ -159,6 +169,7 @@ class UserModel {
       role: role ?? this.role,
       campusId: campusId ?? this.campusId,
       walletBalance: walletBalance ?? this.walletBalance,
+      walletHeld: walletHeld ?? this.walletHeld,
       escrowBalance: escrowBalance ?? this.escrowBalance,
       isSuspended: isSuspended ?? this.isSuspended,
       suspensionUntil: suspensionUntil ?? this.suspensionUntil,

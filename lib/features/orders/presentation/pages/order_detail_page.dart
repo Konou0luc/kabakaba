@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,6 +28,32 @@ class OrderDetailPage extends ConsumerStatefulWidget {
 
 class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   bool _busy = false;
+  Timer? _clock;
+  Timer? _poller;
+
+  @override
+  void initState() {
+    super.initState();
+    _clock = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+    _poller = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted) return;
+      final order = ref.read(orderDetailProvider(widget.orderId)).valueOrNull;
+      if (order == null) return;
+      if (order.status == OrderStatus.PENDING ||
+          order.status == OrderStatus.READY) {
+        ref.invalidate(orderDetailProvider(widget.orderId));
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    _poller?.cancel();
+    super.dispose();
+  }
 
   String _label(OrderStatus status) => switch (status) {
         OrderStatus.PENDING => 'En attente du vendeur',
@@ -69,10 +97,29 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         _ => 0,
       };
 
-  String _ref(String id) {
-    final clean = id.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
-    final tail = clean.length <= 6 ? clean : clean.substring(clean.length - 6);
-    return '#${tail.toUpperCase()}';
+  String _ref(OrderModel order) => '#${order.displayCode}';
+
+  int _remainingSeconds(OrderModel order) {
+    if (order.status == OrderStatus.PENDING) {
+      final elapsed = DateTime.now().difference(order.createdAt).inSeconds;
+      return (300 - elapsed).clamp(0, 300);
+    }
+    if (order.status == OrderStatus.READY) {
+      final start = order.readyAt ?? order.updatedAt;
+      final elapsed = DateTime.now().difference(start).inSeconds;
+      return (3600 - elapsed).clamp(0, 3600);
+    }
+    return 0;
+  }
+
+  String _formatCountdown(int seconds) {
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final rest = seconds % 60;
+    if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${rest.toString().padLeft(2, '0')}';
+    }
+    return '${minutes.toString().padLeft(2, '0')}:${rest.toString().padLeft(2, '0')}';
   }
 
   String _when(DateTime date) {
@@ -136,7 +183,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                     ),
                     const Spacer(),
                     Text(
-                      _ref(order.id),
+                      _ref(order),
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -196,6 +243,20 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             .animate()
             .fadeIn(duration: 280.ms)
             .slideY(begin: 0.04, duration: 320.ms),
+        const SizedBox(height: 16),
+        _PickupCodeCard(code: order.displayCode),
+        if (order.status == OrderStatus.PENDING ||
+            order.status == OrderStatus.READY) ...[
+          const SizedBox(height: 12),
+          _CountdownCard(
+            seconds: _remainingSeconds(order),
+            label: order.status == OrderStatus.PENDING
+                ? 'Le vendeur a 5 min pour accepter'
+                : 'Tu as 1 h pour récupérer et confirmer',
+            formatted: _formatCountdown(_remainingSeconds(order)),
+            pending: order.status == OrderStatus.PENDING,
+          ),
+        ],
         const SizedBox(height: 20),
         const LightSectionTitle(title: 'Articles'),
         ...order.items.map(
@@ -290,16 +351,32 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         ),
         if (order.reason != null && order.reason!.trim().isNotEmpty) ...[
           const SizedBox(height: 12),
-          LightHintBox(text: order.reason!.trim(), isWarning: true),
+          LightHintBox(
+            text: order.reason!.trim(),
+            isWarning: order.status == OrderStatus.REFUSED ||
+                order.status == OrderStatus.CANCELLED_VENDOR ||
+                order.status == OrderStatus.CANCELLED_STUDENT ||
+                order.status == OrderStatus.CANCELLED,
+          ),
+        ],
+        if (_canReview(order)) ...[
+          const SizedBox(height: 16),
+          _OrderReviewCard(order: order),
         ],
       ],
     );
   }
 
+  bool _canReview(OrderModel order) {
+    if (order.hasReview) return false;
+    return order.status == OrderStatus.READY ||
+        order.status == OrderStatus.RECEIVED ||
+        order.status == OrderStatus.AUTO_RECEIVED;
+  }
+
   Widget? _actions(OrderModel order) {
     final canReceive = order.status == OrderStatus.READY;
-    final canCancel = order.status == OrderStatus.PENDING ||
-        order.status == OrderStatus.ACCEPTED;
+    final canCancel = order.status == OrderStatus.PENDING;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -460,6 +537,220 @@ class _TimelineDot extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PickupCodeCard extends StatelessWidget {
+  final String code;
+  const _PickupCodeCard({required this.code});
+
+  @override
+  Widget build(BuildContext context) {
+    return LightCard(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+      child: Column(
+        children: [
+          Text(
+            'Numéro de commande',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: LightPageColors.muted,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            code,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 32,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 4,
+              color: LightPageColors.indigo,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Présente ce numéro au vendeur pour récupérer ta commande.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: LightPageColors.muted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CountdownCard extends StatelessWidget {
+  final int seconds;
+  final String formatted;
+  final String label;
+  final bool pending;
+
+  const _CountdownCard({
+    required this.seconds,
+    required this.formatted,
+    required this.label,
+    required this.pending,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final total = pending ? 300 : 3600;
+    final progress = total == 0 ? 0.0 : (seconds / total).clamp(0.0, 1.0);
+    final color = pending ? LightPageColors.warning : AppColors.success;
+    return LightCard(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 56,
+            height: 56,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 5,
+                  backgroundColor: color.withValues(alpha: 0.16),
+                  valueColor: AlwaysStoppedAnimation(color),
+                ),
+                Text(
+                  formatted,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: seconds >= 3600 ? 9 : 11,
+                    fontWeight: FontWeight.w800,
+                    color: LightPageColors.text,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: LightPageColors.text,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OrderReviewCard extends ConsumerStatefulWidget {
+  final OrderModel order;
+  const _OrderReviewCard({required this.order});
+
+  @override
+  ConsumerState<_OrderReviewCard> createState() => _OrderReviewCardState();
+}
+
+class _OrderReviewCardState extends ConsumerState<_OrderReviewCard> {
+  int _rating = 5;
+  bool _sending = false;
+  final _comment = TextEditingController();
+
+  @override
+  void dispose() {
+    _comment.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    setState(() => _sending = true);
+    try {
+      await ref.read(reviewRepositoryProvider).createReview(
+            orderId: widget.order.id,
+            vendorId: widget.order.vendorId,
+            rating: _rating,
+            comment: _comment.text.trim(),
+          );
+      ref.invalidate(orderDetailProvider(widget.order.id));
+      if (!mounted) return;
+      showKabaSnack(context, 'Avis envoyé, merci.');
+    } catch (error) {
+      if (mounted) {
+        showKabaSnack(context, apiErrorMessage(error), error: true);
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LightCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Donne ton avis',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: LightPageColors.text,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Ta commande est prête. Dis-nous comment ça s’est passé.',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: LightPageColors.muted,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: List.generate(5, (i) {
+              final value = i + 1;
+              return IconButton(
+                onPressed: () => setState(() => _rating = value),
+                icon: Icon(
+                  value <= _rating
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
+                  color: LightPageColors.warning,
+                ),
+              );
+            }),
+          ),
+          TextField(
+            controller: _comment,
+            maxLines: 3,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: LightPageColors.text,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Commentaire optionnel',
+              filled: false,
+              fillColor: Colors.transparent,
+              hintStyle: GoogleFonts.plusJakartaSans(
+                color: LightPageColors.muted,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          LightButton(
+            text: _sending ? 'Envoi…' : 'Envoyer l’avis',
+            onPressed: _sending ? null : _submit,
+          ),
+        ],
+      ),
     );
   }
 }

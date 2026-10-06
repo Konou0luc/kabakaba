@@ -202,8 +202,10 @@ class OrderModel {
   final double escrowAmount;
   final String? packagingOptionId;
   final String? reason;
+  final String? pickupCode;
   final DateTime? readyAt;
   final DateTime? confirmedAt;
+  final bool hasReview;
   final List<OrderLinePreview> items;
 
   OrderModel({
@@ -219,10 +221,20 @@ class OrderModel {
     required this.escrowAmount,
     this.packagingOptionId,
     this.reason,
+    this.pickupCode,
     this.readyAt,
     this.confirmedAt,
+    this.hasReview = false,
     this.items = const [],
   });
+
+  String get displayCode {
+    final code = pickupCode?.trim();
+    if (code != null && code.isNotEmpty) return code.toUpperCase();
+    final clean = id.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+    final tail = clean.length <= 4 ? clean : clean.substring(clean.length - 4);
+    return tail.toUpperCase();
+  }
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     final vendor = json.nested('vendor');
@@ -242,8 +254,10 @@ class OrderModel {
       escrowAmount: json.decimalOr('escrowAmount', 0),
       packagingOptionId: json.optionalString('packagingOptionId'),
       reason: json.optionalString('reason'),
+      pickupCode: json.optionalString('pickupCode'),
       readyAt: json.optionalDateTime('readyAt'),
       confirmedAt: json.optionalDateTime('confirmedAt'),
+      hasReview: json.nested('review') != null,
       items: rawItems.map((item) {
         final menu = item.nested('menuItem');
         return OrderLinePreview(
@@ -275,6 +289,7 @@ class OrderModel {
         'escrowAmount': escrowAmount,
         if (packagingOptionId != null) 'packagingOptionId': packagingOptionId,
         if (reason != null) 'reason': reason,
+        if (pickupCode != null) 'pickupCode': pickupCode,
         if (readyAt != null) 'readyAt': readyAt!.toIso8601String(),
         if (confirmedAt != null) 'confirmedAt': confirmedAt!.toIso8601String(),
       };

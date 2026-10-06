@@ -545,10 +545,12 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
         .where(
           (order) =>
               order.vendorId == vendor.id &&
-              (order.status == OrderStatus.RECEIVED ||
+              (order.status == OrderStatus.READY ||
+                  order.status == OrderStatus.RECEIVED ||
                   order.status == OrderStatus.AUTO_RECEIVED),
         )
         .toList();
+    final toReview = received.where((order) => !order.hasReview).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -586,15 +588,15 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
           ),
         ),
         const SizedBox(height: 16),
-        if (received.isEmpty)
+        if (toReview.isEmpty)
           const KabaEmptyState(
             icon: Icons.star_outline_rounded,
             title: 'Pas encore d’avis',
             subtitle:
-                'Tu pourras noter cette cantine après avoir retiré une commande.',
+                'Tu pourras noter cette cantine dès que ta commande sera prête.',
           )
         else
-          _LeaveReviewCard(order: received.first, vendorId: vendor.id),
+          _LeaveReviewCard(order: toReview.first, vendorId: vendor.id),
       ],
     );
   }

@@ -134,6 +134,7 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
       'count': order.items.fold<int>(0, (sum, line) => sum + line.quantity),
       'time': _formatWhen(order.createdAt),
       'eta': order.readyAt != null ? _formatWhen(order.readyAt!) : '—',
+      'code': order.displayCode,
       'pickup': 'Sur place',
       'status': statusKey,
       'ready': order.status == OrderStatus.READY,
@@ -323,7 +324,7 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        o['id'] as String,
+                        'N° ${o['code']}',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,

@@ -27,14 +27,26 @@ class _CartPageState extends ConsumerState<CartPage> {
 
   List<CartLine> get _items => ref.watch(cartProvider).lines;
 
-  int get _userBalance =>
-      ref.watch(meProvider).valueOrNull?.walletBalance ??
-      ref.watch(currentUserProvider)?.walletBalance ??
-      0;
+  int get _userBalance {
+    final user =
+        ref.watch(meProvider).valueOrNull ?? ref.watch(currentUserProvider);
+    return user?.walletBalance ?? 0;
+  }
+
+  int get _availableTickets {
+    final user =
+        ref.watch(meProvider).valueOrNull ?? ref.watch(currentUserProvider);
+    return user?.availableTickets ?? 0;
+  }
 
   int get _totalPrice => ref.watch(cartProvider).totalTickets;
 
-  bool get _hasEnough => _userBalance >= _totalPrice && _items.isNotEmpty;
+  bool get _hasEnough => _availableTickets >= _totalPrice && _items.isNotEmpty;
+
+  bool get _blockedByHold =>
+      _items.isNotEmpty &&
+      _userBalance >= _totalPrice &&
+      _availableTickets < _totalPrice;
 
   void _updateQty(int index, int delta) {
     final line = _items[index];
@@ -47,6 +59,14 @@ class _CartPageState extends ConsumerState<CartPage> {
     final cart = ref.read(cartProvider);
     if (cart.isEmpty || cart.vendorId == null) return;
     if (!_hasEnough) {
+      if (_blockedByHold) {
+        showKabaSnack(
+          context,
+          'Une partie de tes tickets est gelée pour une commande en cours.',
+          error: true,
+        );
+        return;
+      }
       context.push('/recharge/step1');
       return;
     }
@@ -577,7 +597,7 @@ class _CartPageState extends ConsumerState<CartPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Solde disponible',
+                        'Ton solde',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 10.5,
                           color: LightPageColors.muted,
@@ -612,7 +632,9 @@ class _CartPageState extends ConsumerState<CartPage> {
             LightButton(
               text: _hasEnough
                   ? 'Payer avec les tickets'
-                  : 'Solde insuffisant — Recharger',
+                  : _blockedByHold
+                      ? 'Tickets gelés — commande en cours'
+                      : 'Solde insuffisant — Recharger',
               icon: _hasEnough
                   ? Icons.payment_rounded
                   : Icons.add_circle_outline_rounded,

@@ -82,7 +82,12 @@ class OrderRepository {
 
   Future<OrderModel> cancelOrder(String id) async {
     final response = await _apiClient.post(ApiEndpoints.orderCancel(id));
-    return OrderModel.fromJson(unwrapEntity(response.data));
+    final map = unwrapEntity(response.data);
+    final nested = map['order'];
+    if (nested is Map) {
+      return OrderModel.fromJson(Map<String, dynamic>.from(nested));
+    }
+    return OrderModel.fromJson(map);
   }
 
   Future<OrderModel> confirmReceive(String id) async {
