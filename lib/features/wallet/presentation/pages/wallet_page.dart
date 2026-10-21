@@ -26,10 +26,9 @@ class _WalletPageState extends ConsumerState<WalletPage> {
   }
 
   bool _isIncoming(TransactionModel tx) =>
-      tx.type == TransactionType.RECHARGE ||
-      tx.type == TransactionType.TRANSFER_RECEIVED ||
-      tx.type == TransactionType.ORDER_REFUND ||
-      tx.type == TransactionType.COMMISSION;
+      tx.type == TransactionType.DEPOSIT ||
+      tx.type == TransactionType.REFUND ||
+      tx.type == TransactionType.REFERRAL_BONUS;
 
   int _sumFor({required bool incoming}) {
     final api = ref.watch(myTransactionsProvider).valueOrNull ?? const [];
@@ -49,14 +48,12 @@ class _WalletPageState extends ConsumerState<WalletPage> {
           ? Icons.add_circle_rounded
           : Icons.restaurant_rounded,
       'title': switch (tx.type) {
-        TransactionType.RECHARGE => 'Rechargement',
-        TransactionType.TRANSFER_SENT => 'Transfert envoyé',
-        TransactionType.TRANSFER_RECEIVED => 'Transfert reçu',
-        TransactionType.ORDER_PAYMENT => 'Commande',
-        TransactionType.ORDER_REFUND => 'Remboursement',
-        TransactionType.COMMISSION => 'Commission',
-        TransactionType.PAYOUT => 'Retrait',
-        TransactionType.ADJUSTMENT => 'Ajustement',
+        TransactionType.DEPOSIT => 'Rechargement',
+        TransactionType.PAYMENT => 'Commande',
+        TransactionType.SALE => 'Vente',
+        TransactionType.REFUND => 'Remboursement',
+        TransactionType.WITHDRAWAL => 'Retrait',
+        TransactionType.REFERRAL_BONUS => 'Bonus parrainage',
       },
       'subtitle': tx.reference ?? tx.status.name,
       'amount': '${incoming ? '+' : '-'}${formatTickets(tx.amount)}',

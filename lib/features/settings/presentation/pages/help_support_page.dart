@@ -60,13 +60,13 @@ class _HelpSupportPageState extends State<HelpSupportPage>
         {
           'title': 'Quel est le montant minimum de recharge ?',
           'content':
-              '''500 FCFA, ce qui équivaut à 500 tickets. Tu peux recharger via Mobile Money (Moov Flooz ou Mix by Yas).''',
+              '''Tu choisis les tickets à recevoir. Les frais s’ajoutent au paiement, via Flooz ou Mixx by Yas.''',
         },
         {
           'title':
               'Pourquoi le montant payé est différent du nombre de tickets reçus ?',
           'content':
-              '''Le montant affiché couvre les frais de transaction de l'opérateur mobile money et une petite commission qui finance la plateforme. Le nombre exact de tickets que tu recevras est toujours indiqué clairement avant validation.''',
+              '''Avant de valider, tu vois les tickets, les frais et le total à payer.''',
         },
         {
           'title': 'Mes tickets expirent-ils ?',
@@ -76,17 +76,17 @@ class _HelpSupportPageState extends State<HelpSupportPage>
       ],
     },
     {
-      'category': 'PARRAINAGE & AMBASSADEUR',
+      'category': 'PARRAINAGE',
       'questions': [
         {
-          'title': 'Comment devenir ambassadeur ?',
+          'title': 'Comment parrainer un ami ?',
           'content':
-              '''Depuis ton profil, complète une demande avec une photo de ta carte scolaire et ton école/faculté. Un administrateur traite ta demande manuellement et tu reçois une notification de la décision.''',
+              '''Depuis ton profil ou Réglages, ouvre Parrainage kabakaba et partage ton code. Ton filleul le saisit à l’inscription (optionnel).''',
         },
         {
-          'title': 'Quand reçois-je mes commissions ?',
+          'title': 'Quand reçois-je mes tickets de parrainage ?',
           'content':
-              '''Automatiquement, directement sur ton portefeuille tickets, à chaque recharge effectuée par l'un de tes affiliés. Ton niveau (Bronze/Argent/Or) est recalculé chaque jour selon le volume des 30 derniers jours.''',
+              '''Tu gagnes 100 tickets automatiquement à la première recharge réussie de ton filleul. Les tickets sont crédités sur ton portefeuille.''',
         },
       ],
     },
@@ -223,8 +223,7 @@ class _HelpSupportPageState extends State<HelpSupportPage>
                           KabaCard(
                             padding: const EdgeInsets.all(14),
                             color: AppColors.surfaceSecondary(context),
-                            onTap: () =>
-                                context.push('/ambassador-presentation'),
+                            onTap: () => context.push('/referral'),
                             child: Row(
                               children: [
                                 Container(
@@ -238,7 +237,7 @@ class _HelpSupportPageState extends State<HelpSupportPage>
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: const Icon(
-                                    Icons.star_rounded,
+                                    Icons.card_giftcard_rounded,
                                     color: AppColors.accent,
                                     size: 24,
                                   ),
@@ -250,12 +249,12 @@ class _HelpSupportPageState extends State<HelpSupportPage>
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Devenez Ambassadeur',
+                                        'Parrainage kabakaba',
                                         style: AppTextStyles.h3,
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        'Gagnez des commissions sur chaque commande',
+                                        'Invite un ami : 100 tickets à sa 1ʳᵉ recharge',
                                         style: AppTextStyles.bodySmall.copyWith(
                                           color:
                                               Theme.of(context).brightness ==
@@ -596,13 +595,12 @@ class _ReportIssueFormState extends ConsumerState<_ReportIssueForm> {
   String? _selectedIssue;
   String? _selectedOrder;
 
-  static const List<String> _issueTypes = [
-    'Plat non conforme',
-    'Plat manquant',
-    'Erreur sur la commande',
-    'Retard de livraison',
-    'Problème de qualité',
-    'Autre',
+  /// Valeurs API ReportType.
+  static const List<(String label, String type)> _issueTypes = [
+    ('Plat non conforme', 'WRONG_MEAL'),
+    ('Composant manquant', 'MISSING_COMPONENT'),
+    ('Commande incomplète', 'INCOMPLETE_ORDER'),
+    ('Autre', 'OTHER'),
   ];
 
   @override
@@ -706,8 +704,8 @@ class _ReportIssueFormState extends ConsumerState<_ReportIssueForm> {
               isExpanded: true,
               items: _issueTypes.map((issue) {
                 return DropdownMenuItem(
-                  value: issue,
-                  child: Text(issue, style: AppTextStyles.bodyMedium),
+                  value: issue.$2,
+                  child: Text(issue.$1, style: AppTextStyles.bodyMedium),
                 );
               }).toList(),
               onChanged: (value) {
@@ -732,14 +730,14 @@ class _ReportIssueFormState extends ConsumerState<_ReportIssueForm> {
             onPressed: _selectedOrder != null && _selectedIssue != null
                 ? () async {
                     try {
-                      await ref.read(orderRepositoryProvider).createDispute(
+                      await ref.read(reportRepositoryProvider).createReport(
                             orderId: _selectedOrder!,
                             type: _selectedIssue!,
-                            description: _descriptionController.text.trim(),
+                            comment: _descriptionController.text.trim(),
                           );
                       if (!context.mounted) return;
                       Navigator.pop(context);
-                      showKabaSnack(context, 'Litige envoyé');
+                      showKabaSnack(context, 'Signalement envoyé');
                     } catch (error) {
                       if (context.mounted) {
                         showKabaSnack(

@@ -20,7 +20,6 @@ class UserRepository {
     String? avatarUrl,
     String? campusId,
     bool? notifyOrders,
-    bool? notifyAmbassador,
     bool? notifyPromotions,
   }) async {
     final response = await _apiClient.post(
@@ -34,7 +33,6 @@ class UserRepository {
         if (avatarUrl != null) 'avatarUrl': avatarUrl,
         if (campusId != null) 'campusId': campusId,
         if (notifyOrders != null) 'notifyOrders': notifyOrders,
-        if (notifyAmbassador != null) 'notifyAmbassador': notifyAmbassador,
         if (notifyPromotions != null) 'notifyPromotions': notifyPromotions,
       },
     );
@@ -83,7 +81,6 @@ class UserRepository {
     String? avatarUrl,
     String? campusId,
     bool? notifyOrders,
-    bool? notifyAmbassador,
     bool? notifyPromotions,
     bool? isSuspended,
     DateTime? suspensionUntil,
@@ -99,7 +96,6 @@ class UserRepository {
         if (avatarUrl != null) 'avatarUrl': avatarUrl,
         if (campusId != null) 'campusId': campusId,
         if (notifyOrders != null) 'notifyOrders': notifyOrders,
-        if (notifyAmbassador != null) 'notifyAmbassador': notifyAmbassador,
         if (notifyPromotions != null) 'notifyPromotions': notifyPromotions,
         if (isSuspended != null) 'isSuspended': isSuspended,
         if (suspensionUntil != null)

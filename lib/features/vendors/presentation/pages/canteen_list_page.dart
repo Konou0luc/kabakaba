@@ -116,7 +116,7 @@ class _CanteenListPageState extends ConsumerState<CanteenListPage> {
                     final vendor = filtered[index];
                     return KabaCanteenPoster(
                       vendor: vendor,
-                      height: 176,
+                      height: 188,
                       onTap: () =>
                           context.push('/canteen-detail', extra: vendor.id),
                     )

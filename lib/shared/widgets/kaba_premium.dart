@@ -355,9 +355,9 @@ class KabaCanteenPoster extends StatelessWidget {
                 ),
               ),
               Positioned(
-                left: 14,
-                right: 14,
-                bottom: 14,
+                left: height <= 140 ? 12 : 14,
+                right: height <= 140 ? 12 : 14,
+                bottom: height <= 140 ? 12 : 14,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -366,7 +366,7 @@ class KabaCanteenPoster extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 16,
+                        fontSize: height <= 140 ? 16 : 18,
                         fontWeight: FontWeight.w800,
                         height: 1.15,
                         color: Colors.white,
@@ -379,9 +379,9 @@ class KabaCanteenPoster extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
+                          fontSize: height <= 140 ? 11 : 12,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white.withValues(alpha: 0.7),
+                          color: Colors.white.withValues(alpha: 0.72),
                         ),
                       ),
                     ],

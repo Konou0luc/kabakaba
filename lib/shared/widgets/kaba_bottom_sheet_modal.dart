@@ -63,6 +63,15 @@ class KabaBottomSheetModal extends StatelessWidget {
     return confirmed == true;
   }
 
+  static Future<bool> confirmClearCart(BuildContext context) async {
+    final confirmed = await show<bool>(
+      context: context,
+      title: 'Vider le panier',
+      child: const _ClearCartConfirmBody(),
+    );
+    return confirmed == true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode =
@@ -202,6 +211,66 @@ class _LogoutConfirmBody extends StatelessWidget {
           LightButton(
             text: 'Se déconnecter',
             icon: Icons.logout_rounded,
+            isDanger: true,
+            isPrimary: false,
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+          const SizedBox(height: 10),
+          LightButton(
+            text: 'Annuler',
+            isPrimary: false,
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClearCartConfirmBody extends StatelessWidget {
+  const _ClearCartConfirmBody();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: LightPageColors.redLight,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: LightPageColors.red,
+                size: 26,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Vider tout le panier ?',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.h3.copyWith(color: LightPageColors.text),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tous les articles seront retirés. Cette action est définitive.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: LightPageColors.muted,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 24),
+          LightButton(
+            text: 'Vider le panier',
+            icon: Icons.delete_outline_rounded,
             isDanger: true,
             isPrimary: false,
             onPressed: () => Navigator.of(context).pop(true),

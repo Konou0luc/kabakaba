@@ -57,7 +57,7 @@ class RechargeStep1Page extends ConsumerWidget {
             const SizedBox(height: 28),
             const LightHintBox(
               text:
-                  'Le montant saisi est ce que tu paies. Les frais Mobile Money sont inclus, les tickets sont calculés par le serveur.',
+                  'Choisis les tickets à recevoir. Les frais s’ajoutent au montant à payer.',
             ),
           ],
         ),
@@ -162,7 +162,7 @@ class RechargeStep1Page extends ConsumerWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              'Flooz et Mixx uniquement · 600 à 10 500 FCFA',
+              'Flooz et Mixx uniquement · 500 à 10 000 FCFA',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 11,
                 color: Colors.white.withValues(alpha: 0.7),

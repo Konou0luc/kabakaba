@@ -47,6 +47,7 @@ import '../../features/ambassador/presentation/pages/commission_history_page.dar
 import '../../features/ambassador/presentation/pages/ambassador_presentation_page.dart';
 import '../../features/ambassador/presentation/pages/ambassador_signup_page.dart';
 import '../../features/ambassador/presentation/pages/ambassador_application_pages.dart';
+import '../../features/ambassador/presentation/pages/referral_page.dart';
 import 'main_navigation_wrapper.dart';
 
 part 'app_router.g.dart';
@@ -289,6 +290,10 @@ GoRouter router(Ref ref) {
             builder: (context, state) => const CampusPage(),
           ),
           GoRoute(
+            path: '/referral',
+            builder: (context, state) => const ReferralProgramPage(),
+          ),
+          GoRoute(
             path: '/ambassador-dashboard',
             builder: (context, state) => const AmbassadorDashboardPage(),
           ),
@@ -334,8 +339,9 @@ GoRouter router(Ref ref) {
           ),
           GoRoute(
             path: '/ambassador/pending',
-            builder: (context, state) =>
-                AmbassadorPendingPage(promoCode: state.extra as String),
+            builder: (context, state) => AmbassadorPendingPage(
+              promoCode: state.extra as String? ?? '',
+            ),
           ),
         ],
       ),

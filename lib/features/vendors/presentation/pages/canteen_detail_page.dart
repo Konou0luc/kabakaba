@@ -26,20 +26,25 @@ class CanteenDetailPage extends ConsumerStatefulWidget {
 
 class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
   int _tab = 0;
-  String? _composeItemId;
   final Map<String, int> _componentQty = {};
 
-  List<MenuItemModel> get _menu {
+  List<MenuModel> get _menus {
     final id = widget.vendorId;
     if (id == null) return const [];
-    return ref.watch(vendorMenuProvider(id)).valueOrNull ?? const [];
+    return ref.watch(vendorMenusProvider(id)).valueOrNull ?? const [];
   }
 
-  List<MenuItemModel> get _composeBases {
-    final custom = _menu.where((item) => item.isCustomizable).toList();
-    return custom.isNotEmpty
-        ? custom
-        : _menu.where((item) => item.isAvailable).toList();
+  List<ComponentModel> get _components {
+    final id = widget.vendorId;
+    if (id == null) return const [];
+    return ref.watch(vendorComponentsProvider(id)).valueOrNull ?? const [];
+  }
+
+  List<ComponentCategoryModel> get _categories {
+    final id = widget.vendorId;
+    if (id == null) return const [];
+    return ref.watch(vendorComponentCategoriesProvider(id)).valueOrNull ??
+        const [];
   }
 
   @override
@@ -72,33 +77,52 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
           subtitle: apiErrorMessage(error),
         ),
       ),
-      data: (vendor) => LightPageScaffold(
-        title: vendor.canteenName,
+      data: (vendor) => Scaffold(
+        backgroundColor: LightPageColors.white,
         bottomNavigationBar: cartCount > 0 || _tab != 2
             ? _buildStickyBottomBar()
             : null,
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-          children: [
-            _buildCover(vendor)
-                .animate()
-                .fadeIn(duration: 280.ms)
-                .slideY(begin: 0.04, duration: 320.ms),
-            const SizedBox(height: 16),
-            _buildCanteenInfo(vendor),
-            const SizedBox(height: 18),
-            LightTabs(
-              tabs: const ['Menus', 'Composer', 'Avis'],
-              selectedIndex: _tab,
-              onTap: (i) => setState(() => _tab = i),
+        body: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: _buildCover(vendor)
+                  .animate()
+                  .fadeIn(duration: 280.ms),
             ),
-            const SizedBox(height: 18),
-            if (_tab == 0)
-              _buildMenusTab()
-            else if (_tab == 1)
-              _buildCustomizeTab()
-            else
-              _buildReviewsTab(vendor),
+            SliverToBoxAdapter(
+              child: Transform.translate(
+                offset: const Offset(0, -18),
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: LightPageColors.white,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildCanteenInfo(vendor),
+                      const SizedBox(height: 18),
+                      LightTabs(
+                        tabs: const ['Menus', 'Composer', 'Avis'],
+                        selectedIndex: _tab,
+                        onTap: (i) => setState(() => _tab = i),
+                      ),
+                      const SizedBox(height: 18),
+                      if (_tab == 0)
+                        _buildMenusTab()
+                      else if (_tab == 1)
+                        _buildComposeTab(vendor)
+                      else
+                        _buildReviewsTab(vendor),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -107,96 +131,123 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
 
   Widget _buildCover(VendorModel vendor) {
     final image = vendor.bannerUrl ?? vendor.logoUrl;
-    final open = vendor.isOpen;
     final desc = vendor.description?.trim();
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: SizedBox(
-        height: 220,
-        width: double.infinity,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            RemotePhoto(
-              url: image,
-              width: double.infinity,
-              height: 220,
-              fallback: ColoredBox(
-                color: const Color(0xFF1B2A6B),
-                child: Icon(
-                  Icons.restaurant_rounded,
-                  color: AppColors.accent.withValues(alpha: 0.85),
-                  size: 52,
+    final topInset = MediaQuery.paddingOf(context).top;
+    return SizedBox(
+      height: 260 + topInset * 0.35,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          RemotePhoto(
+            url: image,
+            width: double.infinity,
+            height: 280,
+            fallback: ColoredBox(
+              color: const Color(0xFF1B2A6B),
+              child: Icon(
+                Icons.restaurant_rounded,
+                color: AppColors.accent.withValues(alpha: 0.85),
+                size: 52,
+              ),
+            ),
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x400D1438),
+                  Color(0x140D1438),
+                  Color(0x00FFFFFF),
+                  Color(0xFFFFFFFF),
+                ],
+                stops: [0, 0.35, 0.62, 1],
+              ),
+            ),
+          ),
+          Positioned(
+            top: topInset + 8,
+            left: 14,
+            child: Material(
+              color: Colors.white.withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                onTap: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/');
+                  }
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 16,
+                    color: Color(0xFF0D1438),
+                  ),
                 ),
               ),
             ),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x33000000),
-                    Color(0x14000000),
-                    Color(0xE6000000),
-                  ],
-                  stops: [0, 0.42, 1],
+          ),
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 36,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                KabaStatusPill(
+                  label: vendor.capacityLabel,
+                  color: switch (vendor.capacityStatus) {
+                    VendorCapacity.OPEN => AppColors.success,
+                    VendorCapacity.BUSY => LightPageColors.warning,
+                    VendorCapacity.CLOSED => const Color(0xE6000000),
+                  },
+                  inverted: true,
                 ),
-              ),
-            ),
-            Positioned(
-              left: 14,
-              top: 14,
-              child: KabaStatusPill(
-                label: open ? 'Ouverte' : 'Fermée',
-                color: open ? AppColors.success : const Color(0xE6000000),
-                inverted: true,
-              ),
-            ),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                const SizedBox(height: 10),
+                Text(
+                  vendor.canteenName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                    letterSpacing: -0.5,
+                    color: LightPageColors.text,
+                  ),
+                ),
+                if (desc != null && desc.isNotEmpty) ...[
+                  const SizedBox(height: 4),
                   Text(
-                    vendor.canteenName,
+                    desc,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      height: 1.1,
-                      letterSpacing: -0.5,
-                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      height: 1.3,
+                      color: LightPageColors.text2,
                     ),
                   ),
-                  if (desc != null && desc.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      desc,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        height: 1.3,
-                        color: Colors.white.withValues(alpha: 0.78),
-                      ),
-                    ),
-                  ],
                 ],
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildCanteenInfo(VendorModel vendor) {
-    final available = _menu.where((item) => item.isAvailable).length;
+    final availableMenus = _menus.where((m) => m.available).length;
+    final availableComponents = _components.where((c) => c.available).length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -207,22 +258,32 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
           runSpacing: 8,
           children: [
             _MetaChip(
-              icon: vendor.isOpen
-                  ? Icons.schedule_rounded
-                  : Icons.lock_clock_rounded,
-              label: vendor.isOpen ? 'Service ouvert' : 'Service fermé',
-              color: vendor.isOpen ? AppColors.success : LightPageColors.muted,
+              icon: switch (vendor.capacityStatus) {
+                VendorCapacity.OPEN => Icons.schedule_rounded,
+                VendorCapacity.BUSY => Icons.hourglass_top_rounded,
+                VendorCapacity.CLOSED => Icons.lock_clock_rounded,
+              },
+              label: vendor.capacityLabel,
+              color: switch (vendor.capacityStatus) {
+                VendorCapacity.OPEN => AppColors.success,
+                VendorCapacity.BUSY => LightPageColors.warning,
+                VendorCapacity.CLOSED => LightPageColors.muted,
+              },
             ),
-            if (_menu.isNotEmpty)
+            if (_menus.isNotEmpty)
               _MetaChip(
                 icon: Icons.restaurant_menu_rounded,
-                label: available == 1 ? '1 plat' : '$available plats',
+                label: availableMenus == 1
+                    ? '1 menu'
+                    : '$availableMenus menus',
                 color: LightPageColors.indigo,
               ),
-            if (_composeBases.isNotEmpty)
+            if (_components.isNotEmpty)
               _MetaChip(
                 icon: Icons.tune_rounded,
-                label: 'Composition possible',
+                label: availableComponents == 1
+                    ? '1 composant'
+                    : '$availableComponents composants',
                 color: LightPageColors.orange,
               ),
           ],
@@ -231,180 +292,49 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
     );
   }
 
-  Widget _buildCustomizeTab() {
-    final bases = _composeBases;
-    if (bases.isEmpty) {
-      return const KabaEmptyState(
-        icon: Icons.tune_rounded,
-        title: 'Rien à composer',
-        subtitle: 'Cette cantine n’a pas encore de plat à assembler.',
+  Widget _buildMenusTab() {
+    final menus = _menus;
+    final loading = widget.vendorId != null &&
+        ref.watch(vendorMenusProvider(widget.vendorId!)).isLoading;
+    if (loading) {
+      return const Padding(
+        padding: EdgeInsets.all(40),
+        child: Center(child: CircularProgressIndicator()),
       );
     }
-    final selectedId = _composeItemId ?? bases.first.id;
-    final selected = bases.firstWhere(
-      (item) => item.id == selectedId,
-      orElse: () => bases.first,
-    );
-    final components =
-        ref.watch(menuComponentsProvider(selected.id)).valueOrNull ?? const [];
-
+    if (menus.isEmpty) {
+      return const KabaEmptyState(
+        icon: Icons.restaurant_menu_rounded,
+        title: 'Menu encore vide',
+        subtitle: 'Aucun menu pré-composé n’a été publié pour le moment.',
+      );
+    }
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const LightHintBox(
-          icon: Icons.tips_and_updates_rounded,
-          text:
-              'Choisis une base, ajoute les extras proposés par la cantine, puis ajoute au panier.',
-        ),
-        const SizedBox(height: 18),
-        const LightSectionTitle(
-          title: 'Choix de la base',
-          subtitle: 'Prix de base en tickets',
-        ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 0.92,
-          ),
-          itemCount: bases.length,
-          itemBuilder: (context, i) {
-            final item = bases[i];
-            final selectedBase = item.id == selected.id;
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => setState(() {
-                  _composeItemId = item.id;
-                  _componentQty.clear();
-                }),
-                borderRadius: BorderRadius.circular(16),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  decoration: BoxDecoration(
-                    color: selectedBase
-                        ? LightPageColors.orange.withValues(alpha: 0.08)
-                        : LightPageColors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: selectedBase
-                          ? LightPageColors.orange
-                          : LightPageColors.border,
-                      width: selectedBase ? 1.8 : 1,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(15),
-                          ),
-                          child: RemotePhoto(
-                            url: item.imageUrl,
-                            width: double.infinity,
-                            height: 88,
-                            fallback: ColoredBox(
-                              color: const Color(0xFF1B2A6B),
-                              child: Icon(
-                                Icons.restaurant_rounded,
-                                color: AppColors.accent.withValues(alpha: 0.85),
-                                size: 28,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w800,
-                                color: LightPageColors.text,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${formatTickets(item.priceTickets)} tickets',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: LightPageColors.orange,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+        ...List.generate(menus.length, (i) {
+          final item = menus[i];
+          return Padding(
+            padding: EdgeInsets.only(bottom: i == menus.length - 1 ? 0 : 12),
+            child: _MenuCard(
+              item: item,
+              onTap: () => context.push(
+                '/menu-detail',
+                extra: {
+                  'itemId': item.id,
+                  'vendorId': widget.vendorId,
+                },
               ),
-            );
-          },
-        ),
-        const SizedBox(height: 22),
-        LightSectionTitle(
-          title: 'Accompagnements',
-          subtitle: components.isEmpty
-              ? 'Aucun extra publié pour cette base'
-              : 'Quantités limitées par la cantine',
-        ),
-        if (components.isEmpty)
-          Text(
-            'Tu peux commander cette base telle quelle.',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w500,
-              color: LightPageColors.muted,
+              onAdd: item.available
+                  ? () => _addMenu(item)
+                  : null,
             ),
-          )
-        else
-          ...components.map((component) {
-            final qty = _componentQty[component.id] ?? component.minQty;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _buildQtyItem(
-                component.name,
-                component.unitPriceTickets,
-                qty,
-                qty < component.maxQty
-                    ? () => setState(
-                          () => _componentQty[component.id] = qty + 1,
-                        )
-                    : () {},
-                qty > component.minQty
-                    ? () => setState(
-                          () => _componentQty[component.id] = qty - 1,
-                        )
-                    : null,
-              ),
-            );
-          }),
-        const SizedBox(height: 16),
-        LightButton(
-          text: 'Ajouter au panier',
-          icon: Icons.add_rounded,
-          onPressed: () => _addComposedItem(selected, components),
-        ),
+          );
+        }),
       ],
     );
   }
 
-  void _addComposedItem(
-    MenuItemModel item,
-    List<MenuComponentModel> components,
-  ) {
+  void _addMenu(MenuModel menu) {
     final vendorId = widget.vendorId;
     final vendor = vendorId == null
         ? null
@@ -413,33 +343,201 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
       showKabaSnack(context, 'Cantine introuvable', error: true);
       return;
     }
-    final extras = [
-      for (final component in components)
-        if ((_componentQty[component.id] ?? component.minQty) > 0)
-          CartComponent(
-            componentId: component.id,
-            name: component.name,
-            unitPriceTickets: component.unitPriceTickets,
-            quantity: _componentQty[component.id] ?? component.minQty,
-          ),
-    ];
+    if (!vendor.acceptsOrders) {
+      showKabaSnack(
+        context,
+        vendor.capacityStatus == VendorCapacity.BUSY
+            ? 'Cette cantine est momentanément indisponible'
+            : 'Cette cantine est fermée',
+        error: true,
+      );
+      return;
+    }
     final line = CartLine(
       vendorId: vendor.id,
       vendorName: vendor.canteenName,
-      menuItemId: item.id,
-      name: extras.isEmpty ? item.name : '${item.name} (composé)',
-      priceTickets: item.priceTickets,
+      menuId: menu.id,
+      name: menu.name,
+      priceTickets: menu.priceTickets,
       quantity: 1,
-      imageUrl: item.imageUrl,
-      components: extras,
     );
     final added = ref.read(cartProvider.notifier).add(line);
     if (!added) {
       ref.read(cartProvider.notifier).replaceWith(line);
       showKabaSnack(context, 'Nouveau panier pour ${vendor.canteenName}');
     } else {
-      showKabaSnack(context, '${item.name} ajouté');
+      showKabaSnack(context, '${menu.name} ajouté');
     }
+  }
+
+  Widget _buildComposeTab(VendorModel vendor) {
+    final components = _components;
+    final categories = _categories;
+    final loading = widget.vendorId != null &&
+        (ref.watch(vendorComponentsProvider(widget.vendorId!)).isLoading ||
+            ref
+                .watch(vendorComponentCategoriesProvider(widget.vendorId!))
+                .isLoading);
+
+    if (loading) {
+      return const Padding(
+        padding: EdgeInsets.all(40),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (components.isEmpty) {
+      return const KabaEmptyState(
+        icon: Icons.tune_rounded,
+        title: 'Rien à composer',
+        subtitle: 'Cette cantine n’a pas encore de composants à commander.',
+      );
+    }
+
+    final byCategory = <String?, List<ComponentModel>>{};
+    for (final c in components) {
+      byCategory.putIfAbsent(c.categoryId, () => []).add(c);
+    }
+
+    String categoryName(String? id) {
+      if (id == null) return 'Autres';
+      for (final cat in categories) {
+        if (cat.id == id) return cat.name;
+      }
+      return 'Autres';
+    }
+
+    final selectedTotal = components.fold<int>(0, (sum, c) {
+      final qty = _componentQty[c.id] ?? 0;
+      return sum + c.priceTickets * qty;
+    });
+    final selectedCount =
+        _componentQty.values.fold<int>(0, (sum, q) => sum + q);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const LightHintBox(
+          icon: Icons.tips_and_updates_rounded,
+          text:
+              'Compose ton repas en choisissant les composants à la carte, puis ajoute-les au panier.',
+        ),
+        const SizedBox(height: 18),
+        for (final entry in byCategory.entries) ...[
+          LightSectionTitle(
+            title: categoryName(entry.key),
+            subtitle: '${entry.value.length} option(s)',
+          ),
+          ...entry.value.map((component) {
+            final qty = _componentQty[component.id] ?? 0;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Opacity(
+                opacity: component.available ? 1 : 0.45,
+                child: _buildQtyItem(
+                  component.name,
+                  component.priceTickets,
+                  qty,
+                  component.available
+                      ? () => setState(
+                            () => _componentQty[component.id] = qty + 1,
+                          )
+                      : () {},
+                  qty > 0
+                      ? () => setState(
+                            () => _componentQty[component.id] = qty - 1,
+                          )
+                      : null,
+                  unit: component.unit,
+                  unavailable: !component.available,
+                ),
+              ),
+            );
+          }),
+          const SizedBox(height: 12),
+        ],
+        if (selectedCount > 0) ...[
+          LightCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Text(
+                  '$selectedCount article(s)',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: LightPageColors.muted,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${formatTickets(selectedTotal)} tickets',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: LightPageColors.orange,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          LightButton(
+            text: 'Ajouter au panier',
+            icon: Icons.add_rounded,
+            onPressed: () => _addComposedComponents(vendor),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _addComposedComponents(VendorModel vendor) {
+    if (!vendor.acceptsOrders) {
+      showKabaSnack(
+        context,
+        vendor.capacityStatus == VendorCapacity.BUSY
+            ? 'Cette cantine est momentanément indisponible'
+            : 'Cette cantine est fermée',
+        error: true,
+      );
+      return;
+    }
+    final selected = [
+      for (final c in _components)
+        if ((_componentQty[c.id] ?? 0) > 0 && c.available)
+          CartLine(
+            vendorId: vendor.id,
+            vendorName: vendor.canteenName,
+            componentId: c.id,
+            name: c.name,
+            priceTickets: c.priceTickets,
+            quantity: _componentQty[c.id]!,
+            unit: c.unit,
+          ),
+    ];
+    if (selected.isEmpty) {
+      showKabaSnack(context, 'Choisis au moins un composant', error: true);
+      return;
+    }
+    var replaced = false;
+    for (final line in selected) {
+      final added = ref.read(cartProvider.notifier).add(line);
+      if (!added) {
+        ref.read(cartProvider.notifier).replaceWith(line);
+        replaced = true;
+        for (final rest in selected.skip(1)) {
+          ref.read(cartProvider.notifier).add(rest);
+        }
+        break;
+      }
+    }
+    setState(() => _componentQty.clear());
+    showKabaSnack(
+      context,
+      replaced
+          ? 'Nouveau panier pour ${vendor.canteenName}'
+          : 'Composants ajoutés au panier',
+    );
   }
 
   Widget _buildQtyItem(
@@ -447,8 +545,10 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
     int price,
     int qty,
     VoidCallback onInc,
-    VoidCallback? onDec,
-  ) {
+    VoidCallback? onDec, {
+    String? unit,
+    bool unavailable = false,
+  }) {
     return LightCard(
       padding: const EdgeInsets.all(12),
       borderRadius: 14,
@@ -482,7 +582,9 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '+${formatTickets(price)} tickets / unité',
+                  unavailable
+                      ? 'Indisponible'
+                      : '${formatTickets(price)} tickets${unit != null ? ' · $unit' : ''}',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w600,
@@ -493,50 +595,10 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
             ),
           ),
           const SizedBox(width: 8),
-          _QtyStepper(qty: qty, onInc: onInc, onDec: onDec),
+          if (!unavailable)
+            _QtyStepper(qty: qty, onInc: onInc, onDec: onDec),
         ],
       ),
-    );
-  }
-
-  Widget _buildMenusTab() {
-    final menus = _menu;
-    final loading = widget.vendorId != null &&
-        ref.watch(vendorMenuProvider(widget.vendorId!)).isLoading;
-    if (loading) {
-      return const Padding(
-        padding: EdgeInsets.all(40),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (menus.isEmpty) {
-      return const KabaEmptyState(
-        icon: Icons.restaurant_menu_rounded,
-        title: 'Menu encore vide',
-        subtitle: 'Aucun plat n’a été publié pour le moment.',
-      );
-    }
-    return Column(
-      children: [
-        ...List.generate(menus.length, (i) {
-          final item = menus[i];
-          return Padding(
-            padding: EdgeInsets.only(bottom: i == menus.length - 1 ? 0 : 12),
-            child: _FixedMenuCard(
-              item: item,
-              onTap: item.isAvailable
-                  ? () => context.push(
-                        '/menu-detail',
-                        extra: {
-                          'itemId': item.id,
-                          'vendorId': widget.vendorId,
-                        },
-                      )
-                  : null,
-            ),
-          );
-        }),
-      ],
     );
   }
 
@@ -546,8 +608,7 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
           (order) =>
               order.vendorId == vendor.id &&
               (order.status == OrderStatus.READY ||
-                  order.status == OrderStatus.RECEIVED ||
-                  order.status == OrderStatus.AUTO_RECEIVED),
+                  order.status == OrderStatus.RECEIVED),
         )
         .toList();
     final toReview = received.where((order) => !order.hasReview).toList();
@@ -687,7 +748,7 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
                   Text(
                     hasItems
                         ? '${formatTickets(cart.totalTickets)} tickets'
-                        : 'Choisis ton plat',
+                        : 'Choisis ton repas',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
@@ -825,119 +886,120 @@ class _QtyStepper extends StatelessWidget {
   }
 }
 
-class _FixedMenuCard extends StatelessWidget {
-  final MenuItemModel item;
+class _MenuCard extends StatelessWidget {
+  final MenuModel item;
   final VoidCallback? onTap;
+  final VoidCallback? onAdd;
 
-  const _FixedMenuCard({required this.item, this.onTap});
+  const _MenuCard({required this.item, this.onTap, this.onAdd});
 
   @override
   Widget build(BuildContext context) {
     final desc = item.description?.trim();
-    final tag = item.category?.trim().isNotEmpty == true
-        ? item.category!.trim()
-        : (item.isAvailable ? 'Disponible' : 'Indisponible');
+    final missing = item.missingComponents.map((m) => m.name).join(', ');
     return LightCard(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(14),
       borderRadius: 18,
       onTap: onTap,
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: RemotePhoto(
-                url: item.imageUrl,
-                width: 104,
-                height: 112,
-                radius: 14,
-                fallback: ColoredBox(
-                  color: const Color(0xFF1B2A6B),
-                  child: SizedBox(
-                    width: 104,
-                    height: 112,
-                    child: Icon(
-                      Icons.restaurant_rounded,
-                      color: AppColors.accent.withValues(alpha: 0.85),
-                      size: 32,
-                    ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  item.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: LightPageColors.text,
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: LightPageColors.text,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  KabaStatusPill(
-                    label: tag,
-                    color: item.isAvailable
-                        ? LightPageColors.orange
-                        : LightPageColors.muted,
-                  ),
-                  if (desc != null && desc.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      desc,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: LightPageColors.muted,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                  const Spacer(),
-                  Row(
-                    children: [
-                      Text(
-                        '${formatTickets(item.priceTickets)} tickets',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w900,
-                          color: LightPageColors.orange,
-                        ),
-                      ),
-                      const Spacer(),
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: item.isAvailable
-                              ? LightPageColors.orange
-                              : LightPageColors.muted.withValues(alpha: 0.35),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          item.isAvailable
-                              ? Icons.add_rounded
-                              : Icons.block_rounded,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+              const SizedBox(width: 8),
+              KabaStatusPill(
+                label: item.available ? 'Disponible' : 'Indisponible',
+                color: item.available
+                    ? LightPageColors.orange
+                    : LightPageColors.muted,
+              ),
+            ],
+          ),
+          if (desc != null && desc.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              desc,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: LightPageColors.muted,
+                height: 1.35,
               ),
             ),
           ],
-        ),
+          if (item.lines.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              item.lines
+                  .map((l) => '${l.name} ×${l.quantity}')
+                  .join(' · '),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: LightPageColors.text2,
+              ),
+            ),
+          ],
+          if (!item.available && missing.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Manque : $missing',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+                color: LightPageColors.red,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Text(
+                '${formatTickets(item.priceTickets)} tickets',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  color: LightPageColors.orange,
+                ),
+              ),
+              const Spacer(),
+              if (onAdd != null)
+                Material(
+                  color: LightPageColors.orange,
+                  borderRadius: BorderRadius.circular(10),
+                  child: InkWell(
+                    onTap: onAdd,
+                    borderRadius: BorderRadius.circular(10),
+                    child: const SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: Icon(
+                        Icons.add_rounded,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }

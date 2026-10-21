@@ -189,7 +189,7 @@ class SettingsPage extends ConsumerWidget {
           LightCard(
             padding: const EdgeInsets.all(14),
             borderRadius: 16,
-            onTap: () => context.push('/ambassador-presentation'),
+            onTap: () => context.push('/referral'),
             child: Row(
               children: [
                 Container(
@@ -201,7 +201,7 @@ class SettingsPage extends ConsumerWidget {
                   ),
                   alignment: Alignment.center,
                   child: const Icon(
-                    Icons.workspace_premium_rounded,
+                    Icons.card_giftcard_rounded,
                     color: LightPageColors.orange,
                     size: 24,
                   ),
@@ -212,7 +212,7 @@ class SettingsPage extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Devenir ambassadeur',
+                        'Parrainage kabakaba',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w900,
@@ -221,7 +221,7 @@ class SettingsPage extends ConsumerWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Gagne des commissions sur les recharges de tes filleuls.',
+                        'Invite un ami : 100 tickets à sa 1ʳᵉ recharge.',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,

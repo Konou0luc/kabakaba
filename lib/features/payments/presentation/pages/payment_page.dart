@@ -72,7 +72,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
           const SizedBox(height: 16),
           const LightHintBox(
             text:
-                'Le paiement se fait uniquement avec tes tickets kabakaba. Aucun frais supplémentaire n’est ajouté ici.',
+                'Paiement avec tes tickets.',
           ),
           const SizedBox(height: 24),
           LightButton(
@@ -105,7 +105,8 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       await ref.read(orderRepositoryProvider).createOrder(
         vendorId: cart.vendorId!,
         items: [for (final line in cart.lines) line.toOrderJson()],
-        packagingOptionId: cart.packagingOptionId,
+        consumptionMode: cart.consumptionMode.name,
+        takeawayOptionId: cart.takeawayOptionId,
       );
       ref.read(cartProvider.notifier).clear();
       ref.invalidate(meProvider);

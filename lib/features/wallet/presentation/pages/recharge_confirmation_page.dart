@@ -31,7 +31,6 @@ class _RechargeConfirmationPageState
   String get _paymentId => widget.data['paymentId'] as String? ?? '';
   int get _amount => (widget.data['amountFcfa'] as num?)?.toInt() ?? 0;
   int get _tickets => (widget.data['ticketsReceived'] as num?)?.toInt() ?? 0;
-  int get _fee => (widget.data['feeFcfa'] as num?)?.toInt() ?? 0;
   String get _operator => widget.data['operator'] as String? ?? 'FLOOZ';
 
   @override
@@ -141,8 +140,6 @@ class _RechargeConfirmationPageState
                   _row('Opérateur', _operator == 'MIXX' ? 'Mixx' : 'Flooz'),
                   const SizedBox(height: 10),
                   _row('Payé', '${formatTickets(_amount)} FCFA'),
-                  const SizedBox(height: 10),
-                  _row('Frais inclus', '${formatTickets(_fee)} FCFA'),
                   const SizedBox(height: 10),
                   _row('Tickets', formatTickets(_tickets), emphasize: true),
                   if (_paymentId.isNotEmpty) ...[

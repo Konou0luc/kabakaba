@@ -1,50 +1,75 @@
 import '../../core/network/json_reader.dart';
 
+enum VendorCapacity { OPEN, BUSY, CLOSED }
+
+VendorCapacity vendorCapacityFromJson(String value) {
+  switch (value.toUpperCase()) {
+    case 'OPEN':
+      return VendorCapacity.OPEN;
+    case 'BUSY':
+      return VendorCapacity.BUSY;
+    default:
+      return VendorCapacity.CLOSED;
+  }
+}
+
 class VendorModel {
   final String id;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
-  final String userId;
+  final String? userId;
   final String canteenName;
   final String? logoUrl;
   final String? bannerUrl;
   final String? description;
-  final double balanceFcfa;
-  final double debtFcfa;
   final bool isActive;
-  final bool isOpen;
+  final VendorCapacity capacityStatus;
 
   VendorModel({
     required this.id,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
-    required this.userId,
+    this.userId,
     required this.canteenName,
     this.logoUrl,
     this.bannerUrl,
     this.description,
-    required this.balanceFcfa,
-    required this.debtFcfa,
     required this.isActive,
-    required this.isOpen,
+    required this.capacityStatus,
   });
+
+  /// Accepts immediate orders.
+  bool get acceptsOrders =>
+      isActive && capacityStatus == VendorCapacity.OPEN;
+
+  /// Display “ouverte” for OPEN (BUSY is still “busy”, CLOSED closed).
+  bool get isOpen => capacityStatus == VendorCapacity.OPEN;
+
+  String get capacityLabel => switch (capacityStatus) {
+        VendorCapacity.OPEN => 'Ouverte',
+        VendorCapacity.BUSY => 'Occupée',
+        VendorCapacity.CLOSED => 'Fermée',
+      };
 
   factory VendorModel.fromJson(Map<String, dynamic> json) => VendorModel(
         id: json.requireString('id'),
         createdAt: json.dateTimeOrNow('createdAt'),
         updatedAt: json.dateTimeOrNow('updatedAt'),
         deletedAt: json.optionalDateTime('deletedAt'),
-        userId: json.stringOr('userId', ''),
+        userId: json.optionalString('userId'),
         canteenName: json.stringOr('canteenName', 'Cantine'),
         logoUrl: json.optionalString('logoUrl'),
         bannerUrl: json.optionalString('bannerUrl'),
         description: json.optionalString('description'),
-        balanceFcfa: json.decimalOr('balanceFcfa', 0),
-        debtFcfa: json.decimalOr('debtFcfa', 0),
         isActive: json.boolOr('isActive', true),
-        isOpen: json.boolOr('isOpen', false),
+        capacityStatus: vendorCapacityFromJson(
+          json.stringOr(
+            'capacityStatus',
+            json.boolOr('isOpen', false) ? 'OPEN' : 'CLOSED',
+          ),
+        ),
       );
 
   Map<String, dynamic> toJson() => {
@@ -52,15 +77,13 @@ class VendorModel {
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
         if (deletedAt != null) 'deletedAt': deletedAt!.toIso8601String(),
-        'userId': userId,
+        if (userId != null) 'userId': userId,
         'canteenName': canteenName,
         if (logoUrl != null) 'logoUrl': logoUrl,
         if (bannerUrl != null) 'bannerUrl': bannerUrl,
         if (description != null) 'description': description,
-        'balanceFcfa': balanceFcfa,
-        'debtFcfa': debtFcfa,
         'isActive': isActive,
-        'isOpen': isOpen,
+        'capacityStatus': capacityStatus.name,
       };
 }
 
@@ -109,81 +132,59 @@ class CampusModel {
 }
 
 enum OrderStatus {
-  PENDING,
-  ACCEPTED,
+  CONFIRMED,
   IN_PREPARATION,
   READY,
   RECEIVED,
-  AUTO_RECEIVED,
-  REFUSED,
-  CANCELLED_VENDOR,
-  CANCELLED_STUDENT,
-  REFUNDED,
-  CONFIRMED,
-  REJECTED,
   CANCELLED,
-  COMPLETED,
 }
 
 OrderStatus orderStatusFromJson(String value) {
   switch (value.toUpperCase()) {
     case 'IN_PREPARATION':
       return OrderStatus.IN_PREPARATION;
-    case 'RECEIVED':
-      return OrderStatus.RECEIVED;
-    case 'AUTO_RECEIVED':
-      return OrderStatus.AUTO_RECEIVED;
-    case 'REFUSED':
-    case 'REJECTED':
-      return OrderStatus.REFUSED;
-    case 'CANCELLED_VENDOR':
-      return OrderStatus.CANCELLED_VENDOR;
-    case 'CANCELLED_STUDENT':
-    case 'CANCELLED':
-      return OrderStatus.CANCELLED_STUDENT;
-    case 'REFUNDED':
-      return OrderStatus.REFUNDED;
     case 'READY':
       return OrderStatus.READY;
-    case 'ACCEPTED':
-    case 'CONFIRMED':
-      return OrderStatus.ACCEPTED;
-    case 'COMPLETED':
+    case 'RECEIVED':
       return OrderStatus.RECEIVED;
+    case 'CANCELLED':
+      return OrderStatus.CANCELLED;
+    case 'CONFIRMED':
     default:
-      return OrderStatus.PENDING;
+      return OrderStatus.CONFIRMED;
   }
 }
 
-bool orderIsPending(OrderStatus status) =>
-    status == OrderStatus.PENDING || status == OrderStatus.ACCEPTED;
-
-bool orderIsPreparing(OrderStatus status) =>
-    status == OrderStatus.IN_PREPARATION || status == OrderStatus.READY;
+bool orderIsActive(OrderStatus status) =>
+    status == OrderStatus.CONFIRMED ||
+    status == OrderStatus.IN_PREPARATION ||
+    status == OrderStatus.READY;
 
 bool orderIsHistory(OrderStatus status) =>
-    status == OrderStatus.RECEIVED ||
-    status == OrderStatus.AUTO_RECEIVED ||
-    status == OrderStatus.REFUSED ||
-    status == OrderStatus.CANCELLED_VENDOR ||
-    status == OrderStatus.CANCELLED_STUDENT ||
-    status == OrderStatus.REFUNDED ||
-    status == OrderStatus.CANCELLED ||
-    status == OrderStatus.COMPLETED;
+    status == OrderStatus.RECEIVED || status == OrderStatus.CANCELLED;
 
 String orderStatusToJson(OrderStatus status) => status.name;
+
+enum ConsumptionMode { ON_SITE, TAKEAWAY }
+
+ConsumptionMode consumptionModeFromJson(String value) =>
+    value.toUpperCase() == 'TAKEAWAY'
+        ? ConsumptionMode.TAKEAWAY
+        : ConsumptionMode.ON_SITE;
 
 class OrderLinePreview {
   final String name;
   final int quantity;
-  final String? menuItemId;
+  final String? menuId;
+  final String? componentId;
   final String? imageUrl;
   final int priceTickets;
 
   const OrderLinePreview({
     required this.name,
     required this.quantity,
-    this.menuItemId,
+    this.menuId,
+    this.componentId,
     this.imageUrl,
     this.priceTickets = 0,
   });
@@ -198,13 +199,19 @@ class OrderModel {
   final String vendorId;
   final String vendorName;
   final OrderStatus status;
+  final String? orderNumber;
   final int totalTickets;
-  final double escrowAmount;
-  final String? packagingOptionId;
-  final String? reason;
-  final String? pickupCode;
+  final int takeawayFeeTickets;
+  final ConsumptionMode consumptionMode;
+  final String? takeawayOptionId;
+  final String? takeawayOptionName;
+  final String? cancellationReason;
+  final String? cancelledBy;
   final DateTime? readyAt;
-  final DateTime? confirmedAt;
+  final DateTime? receivedAt;
+  final DateTime? cancelledAt;
+  final DateTime? unclaimedAt;
+  final int refundedTickets;
   final bool hasReview;
   final List<OrderLinePreview> items;
 
@@ -217,27 +224,33 @@ class OrderModel {
     required this.vendorId,
     required this.vendorName,
     required this.status,
+    this.orderNumber,
     required this.totalTickets,
-    required this.escrowAmount,
-    this.packagingOptionId,
-    this.reason,
-    this.pickupCode,
+    this.takeawayFeeTickets = 0,
+    this.consumptionMode = ConsumptionMode.ON_SITE,
+    this.takeawayOptionId,
+    this.takeawayOptionName,
+    this.cancellationReason,
+    this.cancelledBy,
     this.readyAt,
-    this.confirmedAt,
+    this.receivedAt,
+    this.cancelledAt,
+    this.unclaimedAt,
+    this.refundedTickets = 0,
     this.hasReview = false,
     this.items = const [],
   });
 
+  /// Numéro affiché (A-00). Jamais l’identifiant base.
   String get displayCode {
-    final code = pickupCode?.trim();
+    final code = orderNumber?.trim();
     if (code != null && code.isNotEmpty) return code.toUpperCase();
-    final clean = id.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
-    final tail = clean.length <= 4 ? clean : clean.substring(clean.length - 4);
-    return tail.toUpperCase();
+    return '—';
   }
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     final vendor = json.nested('vendor');
+    final takeaway = json.nested('takeawayOption');
     final rawItems = json.nestedList('items');
     return OrderModel(
       id: json.requireString('id'),
@@ -249,28 +262,32 @@ class OrderModel {
       vendorName:
           vendor?.stringOr('canteenName', 'Cantine') ??
           json.stringOr('vendorName', 'Cantine'),
-      status: orderStatusFromJson(json.stringOr('status', 'PENDING')),
+      status: orderStatusFromJson(json.stringOr('status', 'CONFIRMED')),
+      orderNumber: json.optionalString('orderNumber'),
       totalTickets: json.intOr('totalTickets', 0),
-      escrowAmount: json.decimalOr('escrowAmount', 0),
-      packagingOptionId: json.optionalString('packagingOptionId'),
-      reason: json.optionalString('reason'),
-      pickupCode: json.optionalString('pickupCode'),
+      takeawayFeeTickets: json.intOr('takeawayFeeTickets', 0),
+      consumptionMode: consumptionModeFromJson(
+        json.stringOr('consumptionMode', 'ON_SITE'),
+      ),
+      takeawayOptionId: json.optionalString('takeawayOptionId'),
+      takeawayOptionName: takeaway?.optionalString('name'),
+      cancellationReason: json.optionalString('cancellationReason') ??
+          json.optionalString('reason'),
+      cancelledBy: json.optionalString('cancelledBy'),
       readyAt: json.optionalDateTime('readyAt'),
-      confirmedAt: json.optionalDateTime('confirmedAt'),
+      receivedAt: json.optionalDateTime('receivedAt'),
+      cancelledAt: json.optionalDateTime('cancelledAt'),
+      unclaimedAt: json.optionalDateTime('unclaimedAt'),
+      refundedTickets: json.intOr('refundedTickets', 0),
       hasReview: json.nested('review') != null,
       items: rawItems.map((item) {
-        final menu = item.nested('menuItem');
         return OrderLinePreview(
-          menuItemId:
-              item.optionalString('menuItemId') ?? menu?.optionalString('id'),
-          name: menu?.stringOr('name', 'Plat') ?? item.stringOr('name', 'Plat'),
+          menuId: item.optionalString('menuId'),
+          componentId: item.optionalString('componentId'),
+          name: item.stringOr('name', 'Article'),
           quantity: item.intOr('quantity', 1),
-          imageUrl: menu?.optionalString('imageUrl') ??
-              item.optionalString('imageUrl'),
-          priceTickets: item.intOr(
-            'priceTickets',
-            menu?.intOr('priceTickets', 0) ?? 0,
-          ),
+          imageUrl: item.optionalString('imageUrl'),
+          priceTickets: item.intOr('unitPrice', item.intOr('priceTickets', 0)),
         );
       }).toList(),
     );
@@ -285,150 +302,307 @@ class OrderModel {
         'vendorId': vendorId,
         'vendorName': vendorName,
         'status': orderStatusToJson(status),
+        if (orderNumber != null) 'orderNumber': orderNumber,
         'totalTickets': totalTickets,
-        'escrowAmount': escrowAmount,
-        if (packagingOptionId != null) 'packagingOptionId': packagingOptionId,
-        if (reason != null) 'reason': reason,
-        if (pickupCode != null) 'pickupCode': pickupCode,
-        if (readyAt != null) 'readyAt': readyAt!.toIso8601String(),
-        if (confirmedAt != null) 'confirmedAt': confirmedAt!.toIso8601String(),
+        'takeawayFeeTickets': takeawayFeeTickets,
+        'consumptionMode': consumptionMode.name,
+        if (takeawayOptionId != null) 'takeawayOptionId': takeawayOptionId,
+        if (cancellationReason != null)
+          'cancellationReason': cancellationReason,
       };
 }
 
-class MenuItemModel {
+class MenuLineModel {
+  final String componentId;
+  final String name;
+  final String unit;
+  final int quantity;
+
+  const MenuLineModel({
+    required this.componentId,
+    required this.name,
+    required this.unit,
+    required this.quantity,
+  });
+
+  factory MenuLineModel.fromJson(Map<String, dynamic> json) => MenuLineModel(
+        componentId: json.stringOr('componentId', ''),
+        name: json.stringOr('name', 'Composant'),
+        unit: json.stringOr('unit', 'PORTION'),
+        quantity: json.intOr('quantity', 1),
+      );
+}
+
+class MissingComponentModel {
   final String id;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final DateTime? deletedAt;
-  final String vendorId;
+  final String name;
+
+  const MissingComponentModel({required this.id, required this.name});
+
+  factory MissingComponentModel.fromJson(Map<String, dynamic> json) =>
+      MissingComponentModel(
+        id: json.stringOr('id', ''),
+        name: json.stringOr('name', ''),
+      );
+}
+
+/// Precomposed menu (GET /menus/:vendorId).
+class MenuModel {
+  final String id;
+  final String? vendorId;
   final String name;
   final String? description;
   final int priceTickets;
-  final String? imageUrl;
-  final bool isAvailable;
-  final String? category;
-  final String type;
+  final bool available;
+  final List<MissingComponentModel> missingComponents;
+  final List<MenuLineModel> lines;
 
-  MenuItemModel({
+  MenuModel({
     required this.id,
-    required this.createdAt,
-    required this.updatedAt,
-    this.deletedAt,
-    required this.vendorId,
+    this.vendorId,
     required this.name,
     this.description,
     required this.priceTickets,
-    this.imageUrl,
-    required this.isAvailable,
-    this.category,
-    this.type = 'FIXED',
+    required this.available,
+    this.missingComponents = const [],
+    this.lines = const [],
   });
 
-  bool get isCustomizable => type.toUpperCase() == 'CUSTOMIZABLE';
+  bool get isAvailable => available;
 
-  factory MenuItemModel.fromJson(Map<String, dynamic> json) => MenuItemModel(
+  factory MenuModel.fromJson(Map<String, dynamic> json) => MenuModel(
         id: json.requireString('id'),
-        createdAt: json.dateTimeOrNow('createdAt'),
-        updatedAt: json.dateTimeOrNow('updatedAt'),
-        deletedAt: json.optionalDateTime('deletedAt'),
-        vendorId: json.stringOr('vendorId', ''),
-        name: json.stringOr('name', 'Plat'),
+        vendorId: json.optionalString('vendorId'),
+        name: json.stringOr('name', 'Menu'),
         description: json.optionalString('description'),
         priceTickets: json.intOr('priceTickets', 0),
-        imageUrl: json.optionalString('imageUrl'),
-        isAvailable: json.boolOr('isAvailable', true),
-        category: json.optionalString('category'),
-        type: json.stringOr('type', 'FIXED'),
-      );
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-        if (deletedAt != null) 'deletedAt': deletedAt!.toIso8601String(),
-        'vendorId': vendorId,
-        'name': name,
-        if (description != null) 'description': description,
-        'priceTickets': priceTickets,
-        if (imageUrl != null) 'imageUrl': imageUrl,
-        'isAvailable': isAvailable,
-        if (category != null) 'category': category,
-        'type': type,
-      };
-}
-
-class MenuComponentModel {
-  final String id;
-  final String itemId;
-  final String name;
-  final int unitPriceTickets;
-  final int minQty;
-  final int maxQty;
-
-  MenuComponentModel({
-    required this.id,
-    required this.itemId,
-    required this.name,
-    required this.unitPriceTickets,
-    required this.minQty,
-    required this.maxQty,
-  });
-
-  factory MenuComponentModel.fromJson(Map<String, dynamic> json) =>
-      MenuComponentModel(
-        id: json.requireString('id'),
-        itemId: json.stringOr('itemId', ''),
-        name: json.stringOr('name', 'Extra'),
-        unitPriceTickets: json.intOr('unitPriceTickets', 0),
-        minQty: json.intOr('minQty', 0),
-        maxQty: json.intOr('maxQty', 10),
+        available: json.boolOr('available', json.boolOr('isAvailable', true)),
+        missingComponents: json
+            .nestedList('missingComponents')
+            .map(MissingComponentModel.fromJson)
+            .toList(),
+        lines: json.nestedList('lines').map(MenuLineModel.fromJson).toList(),
       );
 }
 
-class PackagingOptionModel {
+/// Public component (GET /components/:vendorId) — no quantity.
+class ComponentModel {
   final String id;
-  final String itemId;
   final String name;
-  final int extraCost;
-  final bool required;
+  final String? categoryId;
+  final String unit;
+  final int priceTickets;
+  final bool available;
 
-  PackagingOptionModel({
+  ComponentModel({
     required this.id,
-    required this.itemId,
     required this.name,
-    required this.extraCost,
-    required this.required,
+    this.categoryId,
+    required this.unit,
+    required this.priceTickets,
+    required this.available,
   });
 
-  factory PackagingOptionModel.fromJson(Map<String, dynamic> json) =>
-      PackagingOptionModel(
+  factory ComponentModel.fromJson(Map<String, dynamic> json) => ComponentModel(
         id: json.requireString('id'),
-        itemId: json.stringOr('itemId', ''),
-        name: json.stringOr('name', 'Emballage'),
-        extraCost: json.intOr('extraCost', 0),
-        required: json.boolOr('required', false),
+        name: json.stringOr('name', 'Composant'),
+        categoryId: json.optionalString('categoryId'),
+        unit: json.stringOr('unit', 'PORTION'),
+        priceTickets: json.intOr('priceTickets', 0),
+        available: json.boolOr('available', true),
       );
 }
 
-class FacultyModel {
+class ComponentCategoryModel {
   final String id;
-  final String campusId;
+  final String vendorId;
   final String name;
-  final bool active;
 
-  FacultyModel({
+  ComponentCategoryModel({
     required this.id,
-    required this.campusId,
+    required this.vendorId,
     required this.name,
-    required this.active,
   });
 
-  factory FacultyModel.fromJson(Map<String, dynamic> json) => FacultyModel(
+  factory ComponentCategoryModel.fromJson(Map<String, dynamic> json) =>
+      ComponentCategoryModel(
         id: json.requireString('id'),
-        campusId: json.stringOr('campusId', ''),
-        name: json.stringOr('name', 'Faculté'),
-        active: json.boolOr('active', true),
+        vendorId: json.stringOr('vendorId', ''),
+        name: json.stringOr('name', 'Catégorie'),
       );
+}
+
+class TakeawayOptionModel {
+  final String id;
+  final String vendorId;
+  final String name;
+  final int priceTickets;
+  final bool isActive;
+
+  TakeawayOptionModel({
+    required this.id,
+    required this.vendorId,
+    required this.name,
+    required this.priceTickets,
+    required this.isActive,
+  });
+
+  factory TakeawayOptionModel.fromJson(Map<String, dynamic> json) =>
+      TakeawayOptionModel(
+        id: json.requireString('id'),
+        vendorId: json.stringOr('vendorId', ''),
+        name: json.stringOr('name', 'À emporter'),
+        priceTickets: json.intOr('priceTickets', 0),
+        isActive: json.boolOr('isActive', true),
+      );
+}
+
+class ReferralMeModel {
+  final String referralCode;
+  final int referredCount;
+  final int rewardedCount;
+  final int totalRewardTickets;
+
+  const ReferralMeModel({
+    required this.referralCode,
+    required this.referredCount,
+    required this.rewardedCount,
+    required this.totalRewardTickets,
+  });
+
+  factory ReferralMeModel.fromJson(Map<String, dynamic> json) =>
+      ReferralMeModel(
+        referralCode: json.stringOr('referralCode', ''),
+        referredCount: json.intOr('referredCount', 0),
+        rewardedCount: json.intOr('rewardedCount', 0),
+        totalRewardTickets: json.intOr('totalRewardTickets', 0),
+      );
+}
+
+enum ReportType {
+  WRONG_MEAL,
+  MISSING_COMPONENT,
+  INCOMPLETE_ORDER,
+  OTHER,
+}
+
+ReportType reportTypeFromJson(String value) => ReportType.values.firstWhere(
+      (e) => e.name.toUpperCase() == value.toUpperCase(),
+      orElse: () => ReportType.OTHER,
+    );
+
+enum ReportStatus { OPEN, IN_PROGRESS, RESOLVED }
+
+ReportStatus reportStatusFromJson(String value) =>
+    ReportStatus.values.firstWhere(
+      (e) => e.name.toUpperCase() == value.toUpperCase(),
+      orElse: () => ReportStatus.OPEN,
+    );
+
+class ReportModel {
+  final String id;
+  final String orderId;
+  final String studentId;
+  final String vendorId;
+  final ReportType type;
+  final String? comment;
+  final ReportStatus status;
+  final DateTime createdAt;
+  final DateTime? resolvedAt;
+
+  ReportModel({
+    required this.id,
+    required this.orderId,
+    required this.studentId,
+    required this.vendorId,
+    required this.type,
+    this.comment,
+    required this.status,
+    required this.createdAt,
+    this.resolvedAt,
+  });
+
+  factory ReportModel.fromJson(Map<String, dynamic> json) => ReportModel(
+        id: json.requireString('id'),
+        orderId: json.stringOr('orderId', ''),
+        studentId: json.stringOr('studentId', ''),
+        vendorId: json.stringOr('vendorId', ''),
+        type: reportTypeFromJson(json.stringOr('type', 'OTHER')),
+        comment: json.optionalString('comment'),
+        status: reportStatusFromJson(json.stringOr('status', 'OPEN')),
+        createdAt: json.dateTimeOrNow('createdAt'),
+        resolvedAt: json.optionalDateTime('resolvedAt'),
+      );
+}
+
+enum ScheduledOrderStatus { PENDING, PLACED, FAILED, CANCELLED }
+
+ScheduledOrderStatus scheduledOrderStatusFromJson(String value) =>
+    ScheduledOrderStatus.values.firstWhere(
+      (e) => e.name.toUpperCase() == value.toUpperCase(),
+      orElse: () => ScheduledOrderStatus.PENDING,
+    );
+
+class ScheduledOrderModel {
+  final String id;
+  final String studentId;
+  final String vendorId;
+  final String vendorName;
+  final DateTime scheduledFor;
+  final ConsumptionMode consumptionMode;
+  final String? takeawayOptionId;
+  final ScheduledOrderStatus status;
+  final String? orderId;
+  final String? failureReason;
+  final DateTime? processedAt;
+  final DateTime? cancelledAt;
+  final DateTime createdAt;
+  final List<Map<String, dynamic>> items;
+
+  ScheduledOrderModel({
+    required this.id,
+    required this.studentId,
+    required this.vendorId,
+    required this.vendorName,
+    required this.scheduledFor,
+    required this.consumptionMode,
+    this.takeawayOptionId,
+    required this.status,
+    this.orderId,
+    this.failureReason,
+    this.processedAt,
+    this.cancelledAt,
+    required this.createdAt,
+    this.items = const [],
+  });
+
+  factory ScheduledOrderModel.fromJson(Map<String, dynamic> json) {
+    final vendor = json.nested('vendor');
+    final rawItems = json['items'];
+    return ScheduledOrderModel(
+      id: json.requireString('id'),
+      studentId: json.stringOr('studentId', ''),
+      vendorId: json.stringOr('vendorId', ''),
+      vendorName: vendor?.stringOr('canteenName', 'Cantine') ?? 'Cantine',
+      scheduledFor: json.dateTimeOrNow('scheduledFor'),
+      consumptionMode: consumptionModeFromJson(
+        json.stringOr('consumptionMode', 'ON_SITE'),
+      ),
+      takeawayOptionId: json.optionalString('takeawayOptionId'),
+      status: scheduledOrderStatusFromJson(json.stringOr('status', 'PENDING')),
+      orderId: json.optionalString('orderId'),
+      failureReason: json.optionalString('failureReason'),
+      processedAt: json.optionalDateTime('processedAt'),
+      cancelledAt: json.optionalDateTime('cancelledAt'),
+      createdAt: json.dateTimeOrNow('createdAt'),
+      items: rawItems is List
+          ? [
+              for (final item in rawItems.whereType<Map>())
+                Map<String, dynamic>.from(item),
+            ]
+          : const [],
+    );
+  }
 }
 
 class RechargeQuote {
@@ -494,21 +668,37 @@ class PaymentModel {
 }
 
 enum TransactionType {
-  RECHARGE,
-  TRANSFER_SENT,
-  TRANSFER_RECEIVED,
-  ORDER_PAYMENT,
-  ORDER_REFUND,
-  COMMISSION,
-  PAYOUT,
-  ADJUSTMENT,
+  DEPOSIT,
+  PAYMENT,
+  SALE,
+  REFUND,
+  WITHDRAWAL,
+  REFERRAL_BONUS,
 }
 
-TransactionType transactionTypeFromJson(String value) =>
-    TransactionType.values.firstWhere(
-      (e) => e.name.toUpperCase() == value.toUpperCase(),
-      orElse: () => TransactionType.RECHARGE,
-    );
+TransactionType transactionTypeFromJson(String value) {
+  switch (value.toUpperCase()) {
+    case 'DEPOSIT':
+    case 'RECHARGE':
+      return TransactionType.DEPOSIT;
+    case 'PAYMENT':
+    case 'ORDER_PAYMENT':
+      return TransactionType.PAYMENT;
+    case 'SALE':
+      return TransactionType.SALE;
+    case 'REFUND':
+    case 'ORDER_REFUND':
+      return TransactionType.REFUND;
+    case 'WITHDRAWAL':
+    case 'PAYOUT':
+      return TransactionType.WITHDRAWAL;
+    case 'REFERRAL_BONUS':
+    case 'COMMISSION':
+      return TransactionType.REFERRAL_BONUS;
+    default:
+      return TransactionType.DEPOSIT;
+  }
+}
 
 String transactionTypeToJson(TransactionType type) => type.name;
 
@@ -558,7 +748,7 @@ class TransactionModel {
         updatedAt: json.dateTimeOrNow('updatedAt'),
         deletedAt: json.optionalDateTime('deletedAt'),
         userId: json.stringOr('userId', ''),
-        type: transactionTypeFromJson(json.stringOr('type', 'RECHARGE')),
+        type: transactionTypeFromJson(json.stringOr('type', 'DEPOSIT')),
         amount: json.intOr('amount', 0),
         status: transactionStatusFromJson(json.stringOr('status', 'PENDING')),
         reference: json.optionalString('reference'),
@@ -584,96 +774,34 @@ class TransactionModel {
       };
 }
 
-class AmbassadorModel {
-  final String id;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final DateTime? deletedAt;
-  final String userId;
-  final String promoCode;
-  final int totalReferrals;
-  final int totalCommissionEarned;
-  final int pendingCommission;
-  final int level;
-  final String status;
-
-  AmbassadorModel({
-    required this.id,
-    required this.createdAt,
-    required this.updatedAt,
-    this.deletedAt,
-    required this.userId,
-    required this.promoCode,
-    required this.totalReferrals,
-    required this.totalCommissionEarned,
-    required this.pendingCommission,
-    required this.level,
-    required this.status,
-  });
-
-  bool get isPending => status.toUpperCase() == 'PENDING';
-  bool get isActive => status.toUpperCase() == 'ACTIVE';
-
-  factory AmbassadorModel.fromJson(Map<String, dynamic> json) =>
-      AmbassadorModel(
-        id: json.requireString('id'),
-        createdAt: json.dateTimeOrNow('createdAt'),
-        updatedAt: json.dateTimeOrNow('updatedAt'),
-        deletedAt: json.optionalDateTime('deletedAt'),
-        userId: json.stringOr('userId', ''),
-        promoCode: json.stringOr('promoCode', ''),
-        totalReferrals: json.intOr('totalReferrals', 0),
-        totalCommissionEarned: json.intOr('totalCommissionEarned', 0),
-        pendingCommission: json.intOr('pendingCommission', 0),
-        level: json.intOr('level', 1),
-        status: json.stringOr('status', 'PENDING'),
-      );
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-        if (deletedAt != null) 'deletedAt': deletedAt!.toIso8601String(),
-        'userId': userId,
-        'promoCode': promoCode,
-        'totalReferrals': totalReferrals,
-        'totalCommissionEarned': totalCommissionEarned,
-        'pendingCommission': pendingCommission,
-        'level': level,
-        'status': status,
-      };
-}
-
-enum NotificationType {
-  ORDER,
-  PAYMENT,
-  AMBASSADOR,
-  PROMOTION,
-  SYSTEM,
-}
+enum NotificationType { INFO, SUCCESS, WARNING, ERROR }
 
 NotificationType notificationTypeFromJson(String value, [String title = '']) {
-  final needle = title.toLowerCase();
-  if (needle.contains('commande')) return NotificationType.ORDER;
-  if (needle.contains('recharge') ||
-      needle.contains('tickets reçus') ||
-      needle.contains('tickets recus')) {
-    return NotificationType.PAYMENT;
-  }
-  if (needle.contains('ambassadeur') || needle.contains('promo')) {
-    return NotificationType.AMBASSADOR;
-  }
   switch (value.toUpperCase()) {
-    case 'ORDER':
-      return NotificationType.ORDER;
-    case 'PAYMENT':
-      return NotificationType.PAYMENT;
-    case 'AMBASSADOR':
-      return NotificationType.AMBASSADOR;
-    case 'PROMOTION':
-      return NotificationType.PROMOTION;
+    case 'SUCCESS':
+      return NotificationType.SUCCESS;
+    case 'WARNING':
+      return NotificationType.WARNING;
+    case 'ERROR':
+      return NotificationType.ERROR;
+    case 'INFO':
+      return NotificationType.INFO;
     default:
-      return NotificationType.SYSTEM;
+      final needle = title.toLowerCase();
+      if (needle.contains('prête') ||
+          needle.contains('confirmée') ||
+          needle.contains('recharge réussie') ||
+          needle.contains('remboursement') ||
+          needle.contains('bonus')) {
+        return NotificationType.SUCCESS;
+      }
+      if (needle.contains('annul') || needle.contains('non passée')) {
+        return NotificationType.WARNING;
+      }
+      if (needle.contains('échou')) {
+        return NotificationType.ERROR;
+      }
+      return NotificationType.INFO;
   }
 }
 
@@ -716,7 +844,7 @@ class NotificationModel {
         title: json.stringOr('title', 'Notification'),
         body: json.stringOr('body', json.stringOr('message', '')),
         type: notificationTypeFromJson(
-          json.stringOr('type', 'SYSTEM'),
+          json.stringOr('type', 'INFO'),
           json.stringOr('title', ''),
         ),
         isRead: json.boolOr('isRead', false),
@@ -775,4 +903,24 @@ class PaginatedResponse<T> {
       totalPages: (meta['totalPages'] as num?)?.toInt() ?? 1,
     );
   }
+}
+
+/// Parse a bare JSON array response into typed models.
+List<T> parseListResponse<T>(
+  dynamic raw,
+  T Function(Map<String, dynamic>) fromJson,
+) {
+  if (raw is List) {
+    return raw
+        .whereType<Map>()
+        .map((e) => fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+  if (raw is Map) {
+    return PaginatedResponse.fromJson(
+      Map<String, dynamic>.from(raw),
+      fromJson,
+    ).data;
+  }
+  return const [];
 }

@@ -7,7 +7,8 @@ import '../../../../core/network/repositories.dart';
 import '../../../../core/network/session_providers.dart';
 import '../../../../core/utils/api_error.dart';
 import '../../../../core/utils/kaba_snack.dart';
-import '../../../../core/utils/phone_e164.dart';
+import '../../../../core/utils/phone_e164.dart'
+    show formatTogoDisplay, toMobileMoneyPhone, toTogoLocalDigits;
 import '../../../../core/utils/ticket_format.dart';
 import '../../../../features/auth/data/auth_provider.dart';
 import '../../../../shared/widgets/light_page_scaffold.dart';
@@ -45,8 +46,9 @@ class _RechargeStep3PageState extends ConsumerState<RechargeStep3Page> {
   }
 
   Future<void> _pay() async {
-    final phone = toTogoE164(_phone.text);
-    if (phone.length < 12) {
+    final phone = toMobileMoneyPhone(_phone.text, _operator);
+    final localLen = toTogoLocalDigits(_phone.text).length;
+    if (localLen < 8) {
       showKabaSnack(context, 'Indique le numéro Mobile Money.', error: true);
       return;
     }
@@ -54,7 +56,8 @@ class _RechargeStep3PageState extends ConsumerState<RechargeStep3Page> {
     try {
       final repo = ref.read(paymentRepositoryProvider);
       final created = await repo.createPaymentIntent(
-        amountFcfa: _amount,
+        ticketsReceived: _tickets > 0 ? _tickets : null,
+        amountFcfa: _tickets > 0 ? null : _amount,
         operator: _operator,
       );
       await repo.initiatePayment(
@@ -92,13 +95,16 @@ class _RechargeStep3PageState extends ConsumerState<RechargeStep3Page> {
               padding: const EdgeInsets.all(14),
               child: Column(
                 children: [
-                  _row('Montant débité', '${formatTickets(_amount)} FCFA'),
-                  const SizedBox(height: 8),
-                  _row('Frais inclus', '${formatTickets(_fee)} FCFA'),
+                  _row('Tickets crédités', formatTickets(_tickets)),
                   const SizedBox(height: 8),
                   _row(
-                    'Tickets crédités',
-                    formatTickets(_tickets),
+                    'Frais de service',
+                    '${formatTickets(_fee)} FCFA',
+                  ),
+                  const SizedBox(height: 8),
+                  _row(
+                    'Tu paies',
+                    '${formatTickets(_amount)} FCFA',
                     emphasize: true,
                   ),
                 ],

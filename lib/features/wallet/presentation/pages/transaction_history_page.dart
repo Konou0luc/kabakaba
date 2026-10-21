@@ -28,25 +28,22 @@ class _TransactionHistoryPageState extends ConsumerState<TransactionHistoryPage>
 
   Map<String, dynamic> _mapTx(TransactionModel tx) {
     final incoming =
-        tx.type == TransactionType.RECHARGE ||
-        tx.type == TransactionType.TRANSFER_RECEIVED ||
-        tx.type == TransactionType.ORDER_REFUND ||
-        tx.type == TransactionType.COMMISSION;
+        tx.type == TransactionType.DEPOSIT ||
+        tx.type == TransactionType.REFUND ||
+        tx.type == TransactionType.REFERRAL_BONUS;
     final title = switch (tx.type) {
-      TransactionType.RECHARGE => 'Rechargement',
-      TransactionType.TRANSFER_SENT => 'Transfert envoyé',
-      TransactionType.TRANSFER_RECEIVED => 'Transfert reçu',
-      TransactionType.ORDER_PAYMENT => 'Commande',
-      TransactionType.ORDER_REFUND => 'Remboursement',
-      TransactionType.COMMISSION => 'Commission',
-      TransactionType.PAYOUT => 'Retrait',
-      TransactionType.ADJUSTMENT => 'Ajustement',
+      TransactionType.DEPOSIT => 'Rechargement',
+      TransactionType.PAYMENT => 'Commande',
+      TransactionType.SALE => 'Vente',
+      TransactionType.REFUND => 'Remboursement',
+      TransactionType.WITHDRAWAL => 'Retrait',
+      TransactionType.REFERRAL_BONUS => 'Bonus parrainage',
     };
     final category = switch (tx.type) {
-      TransactionType.RECHARGE => 'RECHARGE',
-      TransactionType.ORDER_PAYMENT => 'PAYMENT',
-      TransactionType.ORDER_REFUND => 'REFUND',
-      _ => 'TRANSFER',
+      TransactionType.DEPOSIT => 'RECHARGE',
+      TransactionType.PAYMENT => 'PAYMENT',
+      TransactionType.REFUND => 'REFUND',
+      _ => 'OTHER',
     };
     final local = tx.createdAt.toLocal();
     final hh = local.hour.toString().padLeft(2, '0');

@@ -11,7 +11,6 @@ import '../../../../features/cart/data/cart_provider.dart';
 import '../../../../shared/models/api_models.dart';
 import '../../../../shared/widgets/kaba_premium.dart';
 import '../../../../shared/widgets/light_page_scaffold.dart';
-import '../../../../shared/widgets/remote_photo.dart';
 
 class MenuDetailPage extends ConsumerStatefulWidget {
   final String? itemId;
@@ -25,61 +24,68 @@ class MenuDetailPage extends ConsumerStatefulWidget {
 
 class _MenuDetailPageState extends ConsumerState<MenuDetailPage> {
   int _quantity = 1;
-  final Map<String, int> _componentQty = {};
 
   @override
   Widget build(BuildContext context) {
     final itemId = widget.itemId;
-    if (itemId == null || itemId.isEmpty) {
+    final vendorId = widget.vendorId;
+    if (itemId == null || itemId.isEmpty || vendorId == null || vendorId.isEmpty) {
       return const LightPageScaffold(
-        title: 'Plat',
+        title: 'Menu',
         body: KabaEmptyState(
           icon: Icons.restaurant_rounded,
-          title: 'Plat introuvable',
+          title: 'Menu introuvable',
           subtitle: 'Ce menu n’est plus disponible.',
         ),
       );
     }
 
-    final itemAsync = ref.watch(menuItemProvider(itemId));
-    return itemAsync.when(
+    final menuAsync = ref.watch(
+      menuFromVendorProvider((vendorId: vendorId, menuId: itemId)),
+    );
+    return menuAsync.when(
       loading: () => const LightPageScaffold(
-        title: 'Plat',
+        title: 'Menu',
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (error, _) => LightPageScaffold(
-        title: 'Plat',
+        title: 'Menu',
         body: KabaEmptyState(
           icon: Icons.wifi_off_rounded,
           title: 'Impossible de charger',
           subtitle: '$error',
         ),
       ),
-      data: (item) => _buildLoaded(item),
+      data: (menu) {
+        if (menu == null) {
+          return const LightPageScaffold(
+            title: 'Menu',
+            body: KabaEmptyState(
+              icon: Icons.restaurant_rounded,
+              title: 'Menu introuvable',
+              subtitle: 'Ce menu n’est plus disponible.',
+            ),
+          );
+        }
+        return _buildLoaded(menu, vendorId);
+      },
     );
   }
 
-  Widget _buildLoaded(MenuItemModel item) {
-    final vendorId = widget.vendorId ?? item.vendorId;
+  Widget _buildLoaded(MenuModel item, String vendorId) {
     final vendor = ref.watch(vendorDetailProvider(vendorId)).valueOrNull;
-    final components =
-        ref.watch(menuComponentsProvider(item.id)).valueOrNull ?? const [];
-
-    final extras = components.fold<int>(0, (sum, component) {
-      final qty = _componentQty[component.id] ?? component.minQty;
-      return sum + component.unitPriceTickets * qty;
-    });
-    final total = (item.priceTickets + extras) * _quantity;
+    final total = item.priceTickets * _quantity;
+    final missing = item.missingComponents.map((m) => m.name).join(', ');
 
     return LightPageScaffold(
       title: item.name,
       bottomNavigationBar: _StickyAddBar(
         quantity: _quantity,
         total: total,
-        available: item.isAvailable,
+        available: item.available && (vendor?.acceptsOrders ?? true),
         onMinus: _quantity > 1 ? () => setState(() => _quantity -= 1) : null,
         onPlus: () => setState(() => _quantity += 1),
-        onAdd: item.isAvailable ? () => _add(item, vendor, components) : null,
+        onAdd: item.available ? () => _add(item, vendor) : null,
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
@@ -107,16 +113,11 @@ class _MenuDetailPageState extends ConsumerState<MenuDetailPage> {
             runSpacing: 8,
             children: [
               KabaStatusPill(
-                label: item.isAvailable ? 'Disponible' : 'Indisponible',
-                color: item.isAvailable
+                label: item.available ? 'Disponible' : 'Indisponible',
+                color: item.available
                     ? AppColors.success
                     : LightPageColors.muted,
               ),
-              if (item.category != null && item.category!.trim().isNotEmpty)
-                KabaStatusPill(
-                  label: item.category!.trim(),
-                  color: LightPageColors.orange,
-                ),
             ],
           ),
           if (item.description != null && item.description!.trim().isNotEmpty) ...[
@@ -137,7 +138,7 @@ class _MenuDetailPageState extends ConsumerState<MenuDetailPage> {
             child: Row(
               children: [
                 Text(
-                  'Prix de base',
+                  'Prix',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -156,18 +157,17 @@ class _MenuDetailPageState extends ConsumerState<MenuDetailPage> {
               ],
             ),
           ),
-          if (components.isNotEmpty) ...[
+          if (item.lines.isNotEmpty) ...[
             const SizedBox(height: 22),
             const LightSectionTitle(
-              title: 'Options',
-              subtitle: 'Ajuste les extras proposés',
+              title: 'Composition',
+              subtitle: 'Composants inclus dans ce menu',
             ),
-            ...components.map((component) {
-              final qty = _componentQty[component.id] ?? component.minQty;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+            ...item.lines.map(
+              (line) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
                 child: LightCard(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                   child: Row(
                     children: [
                       Container(
@@ -178,88 +178,70 @@ class _MenuDetailPageState extends ConsumerState<MenuDetailPage> {
                           borderRadius: BorderRadius.circular(11),
                         ),
                         child: Icon(
-                          Icons.add_circle_outline_rounded,
+                          Icons.check_circle_outline_rounded,
                           size: 18,
                           color: LightPageColors.orange,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              component.name,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                color: LightPageColors.text,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '+${formatTickets(component.unitPriceTickets)} tickets',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: LightPageColors.muted,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          line.name,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: LightPageColors.text,
+                          ),
                         ),
                       ),
-                      _QtyChip(
-                        qty: qty,
-                        onMinus: qty > component.minQty
-                            ? () => setState(
-                                  () => _componentQty[component.id] = qty - 1,
-                                )
-                            : null,
-                        onPlus: qty < component.maxQty
-                            ? () => setState(
-                                  () => _componentQty[component.id] = qty + 1,
-                                )
-                            : null,
+                      Text(
+                        '×${line.quantity}',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: LightPageColors.muted,
+                        ),
                       ),
                     ],
                   ),
                 ),
-              );
-            }),
+              ),
+            ),
+          ],
+          if (!item.available && missing.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            LightHintBox(
+              text: 'Indisponible : $missing',
+              isWarning: true,
+            ),
           ],
         ],
       ),
     );
   }
 
-  void _add(
-    MenuItemModel item,
-    VendorModel? vendor,
-    List<MenuComponentModel> components,
-  ) {
+  void _add(MenuModel item, VendorModel? vendor) {
     if (vendor == null) {
       showKabaSnack(context, 'Cantine introuvable', error: true);
       return;
     }
-    final extras = [
-      for (final component in components)
-        if ((_componentQty[component.id] ?? component.minQty) > 0)
-          CartComponent(
-            componentId: component.id,
-            name: component.name,
-            unitPriceTickets: component.unitPriceTickets,
-            quantity: _componentQty[component.id] ?? component.minQty,
-          ),
-    ];
+    if (!vendor.acceptsOrders) {
+      showKabaSnack(
+        context,
+        vendor.capacityStatus == VendorCapacity.BUSY
+            ? 'Cette cantine est momentanément indisponible'
+            : 'Cette cantine est fermée',
+        error: true,
+      );
+      return;
+    }
     final line = CartLine(
       vendorId: vendor.id,
       vendorName: vendor.canteenName,
-      menuItemId: item.id,
+      menuId: item.id,
       name: item.name,
       priceTickets: item.priceTickets,
       quantity: _quantity,
-      imageUrl: item.imageUrl,
-      components: extras,
     );
     final added = ref.read(cartProvider.notifier).add(line);
     if (!added) {
@@ -273,7 +255,7 @@ class _MenuDetailPageState extends ConsumerState<MenuDetailPage> {
 }
 
 class _HeroCover extends StatelessWidget {
-  final MenuItemModel item;
+  final MenuModel item;
 
   const _HeroCover({required this.item});
 
@@ -282,36 +264,17 @@ class _HeroCover extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
       child: SizedBox(
-        height: 240,
+        height: 200,
         width: double.infinity,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            RemotePhoto(
-              url: item.imageUrl,
-              width: double.infinity,
-              height: 240,
-              fallback: ColoredBox(
-                color: const Color(0xFF1B2A6B),
-                child: Icon(
-                  Icons.restaurant_rounded,
-                  color: AppColors.accent.withValues(alpha: 0.85),
-                  size: 56,
-                ),
-              ),
-            ),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x26000000),
-                    Color(0x08000000),
-                    Color(0xCC000000),
-                  ],
-                  stops: [0, 0.45, 1],
-                ),
+            ColoredBox(
+              color: const Color(0xFF1B2A6B),
+              child: Icon(
+                Icons.restaurant_rounded,
+                color: AppColors.accent.withValues(alpha: 0.85),
+                size: 56,
               ),
             ),
             Positioned(
@@ -323,7 +286,8 @@ class _HeroCover extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.12)),
                 ),
                 child: Text(
                   '${formatTickets(item.priceTickets)} tickets',
@@ -342,78 +306,21 @@ class _HeroCover extends StatelessWidget {
   }
 }
 
-class _QtyChip extends StatelessWidget {
-  final int qty;
-  final VoidCallback? onMinus;
-  final VoidCallback? onPlus;
-
-  const _QtyChip({required this.qty, this.onMinus, this.onPlus});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: LightPageColors.orangeLight,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(
-          color: LightPageColors.orange.withValues(alpha: 0.28),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _btn(Icons.remove_rounded, onMinus),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              '$qty',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-                color: LightPageColors.orange,
-              ),
-            ),
-          ),
-          _btn(Icons.add_rounded, onPlus),
-        ],
-      ),
-    );
-  }
-
-  Widget _btn(IconData icon, VoidCallback? onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(11),
-      child: SizedBox(
-        width: 30,
-        height: 30,
-        child: Icon(
-          icon,
-          size: 15,
-          color: onTap == null
-              ? LightPageColors.muted.withValues(alpha: 0.5)
-              : LightPageColors.orange,
-        ),
-      ),
-    );
-  }
-}
-
 class _StickyAddBar extends StatelessWidget {
   final int quantity;
   final int total;
   final bool available;
   final VoidCallback? onMinus;
-  final VoidCallback onPlus;
+  final VoidCallback? onPlus;
   final VoidCallback? onAdd;
 
   const _StickyAddBar({
     required this.quantity,
     required this.total,
     required this.available,
-    required this.onMinus,
-    required this.onPlus,
-    required this.onAdd,
+    this.onMinus,
+    this.onPlus,
+    this.onAdd,
   });
 
   @override
@@ -440,8 +347,8 @@ class _StickyAddBar extends StatelessWidget {
           children: [
             Container(
               decoration: BoxDecoration(
-                color: LightPageColors.indigoLight,
-                borderRadius: BorderRadius.circular(14),
+                color: LightPageColors.bg,
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: LightPageColors.border),
               ),
               child: Row(
@@ -449,20 +356,16 @@ class _StickyAddBar extends StatelessWidget {
                   IconButton(
                     onPressed: onMinus,
                     icon: const Icon(Icons.remove_rounded, size: 18),
-                    color: LightPageColors.indigo,
                   ),
                   Text(
                     '$quantity',
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: LightPageColors.text,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   IconButton(
                     onPressed: onPlus,
                     icon: const Icon(Icons.add_rounded, size: 18),
-                    color: LightPageColors.indigo,
                   ),
                 ],
               ),
@@ -473,8 +376,7 @@ class _StickyAddBar extends StatelessWidget {
                 text: available
                     ? 'Ajouter · ${formatTickets(total)}'
                     : 'Indisponible',
-                icon: available ? Icons.add_shopping_cart_rounded : Icons.block,
-                onPressed: onAdd,
+                onPressed: available ? onAdd : null,
               ),
             ),
           ],

@@ -32,7 +32,7 @@ class AboutPage extends StatelessWidget {
             iconBg: LightPageColors.indigoLight,
             title: 'Notre vision',
             desc:
-                'Devenir le compagnon incontournable de chaque étudiant africain : un portefeuille unique pour manger, payer, économiser, et même gagner de l\'argent grâce au programme ambassadeur.',
+                'Devenir le compagnon incontournable de chaque étudiant africain : un portefeuille unique pour manger, payer, économiser, et gagner des tickets grâce au parrainage.',
           ),
           const SizedBox(height: 20),
           LightSectionTitle(

@@ -4,34 +4,6 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/network/api_payload.dart';
 import '../../../shared/models/api_models.dart';
-import '../../../shared/models/auth_models.dart';
-
-class WalletRepository {
-  final ApiClient _apiClient;
-
-  WalletRepository(this._apiClient);
-
-  Future<SuccessResponse> sendMoney({
-    required String recipientPhone,
-    required int amount,
-    String? description,
-  }) async {
-    final response = await _apiClient.post(
-      ApiEndpoints.walletSend,
-      data: {
-        'recipientPhone': recipientPhone,
-        'amount': amount,
-        if (description != null) 'description': description,
-      },
-    );
-    return SuccessResponse.fromJson(response.data as Map<String, dynamic>);
-  }
-}
-
-final walletRepositoryProvider = Provider<WalletRepository>((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  return WalletRepository(apiClient);
-});
 
 class OrderRepository {
   final ApiClient _apiClient;
@@ -41,14 +13,16 @@ class OrderRepository {
   Future<OrderModel> createOrder({
     required String vendorId,
     required List<Map<String, dynamic>> items,
-    String? packagingOptionId,
+    required String consumptionMode,
+    String? takeawayOptionId,
   }) async {
     final response = await _apiClient.post(
       ApiEndpoints.orders,
       data: {
         'vendorId': vendorId,
         'items': items,
-        if (packagingOptionId != null) 'packagingOptionId': packagingOptionId,
+        'consumptionMode': consumptionMode,
+        if (takeawayOptionId != null) 'takeawayOptionId': takeawayOptionId,
       },
     );
     return OrderModel.fromJson(unwrapEntity(response.data));
@@ -58,7 +32,7 @@ class OrderRepository {
     int page = 1,
     int limit = 10,
     String? status,
-    String? vendorId,
+    String? statuses,
   }) async {
     final response = await _apiClient.get(
       ApiEndpoints.orders,
@@ -66,7 +40,7 @@ class OrderRepository {
         'page': page,
         'limit': limit,
         if (status != null) 'status': status,
-        if (vendorId != null) 'vendorId': vendorId,
+        if (statuses != null) 'statuses': statuses,
       },
     );
     return PaginatedResponse<OrderModel>.fromJson(
@@ -80,33 +54,19 @@ class OrderRepository {
     return OrderModel.fromJson(unwrapEntity(response.data));
   }
 
-  Future<OrderModel> cancelOrder(String id) async {
-    final response = await _apiClient.post(ApiEndpoints.orderCancel(id));
+  Future<OrderModel> cancelOrder(String id, {String? reason}) async {
+    final response = await _apiClient.post(
+      ApiEndpoints.orderCancel(id),
+      data: {
+        if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+      },
+    );
     final map = unwrapEntity(response.data);
     final nested = map['order'];
     if (nested is Map) {
       return OrderModel.fromJson(Map<String, dynamic>.from(nested));
     }
     return OrderModel.fromJson(map);
-  }
-
-  Future<OrderModel> confirmReceive(String id) async {
-    final response = await _apiClient.post(ApiEndpoints.orderReceive(id));
-    return OrderModel.fromJson(unwrapEntity(response.data));
-  }
-
-  Future<void> createDispute({
-    required String orderId,
-    required String type,
-    required String description,
-  }) async {
-    await _apiClient.post(
-      ApiEndpoints.orderDispute(orderId),
-      data: {
-        'type': type,
-        'description': description,
-      },
-    );
   }
 }
 
@@ -120,49 +80,33 @@ class CatalogRepository {
 
   CatalogRepository(this._apiClient);
 
-  Future<PaginatedResponse<MenuItemModel>> findAllMenuItems({
-    int page = 1,
-    int limit = 50,
-    String? vendorId,
-  }) async {
-    final response = await _apiClient.get(
-      ApiEndpoints.catalogMenuItems,
-      queryParameters: {
-        'page': page,
-        'limit': limit,
-        if (vendorId != null) 'vendorId': vendorId,
-      },
-    );
-    return PaginatedResponse<MenuItemModel>.fromJson(
-      unwrapPage(response.data),
-      MenuItemModel.fromJson,
-    );
+  Future<List<MenuModel>> findMenus(String vendorId) async {
+    final response = await _apiClient.get(ApiEndpoints.menusByVendor(vendorId));
+    return parseListResponse(response.data, MenuModel.fromJson);
   }
 
-  Future<MenuItemModel> getMenuItemById(String id) async {
-    final response = await _apiClient.get(ApiEndpoints.catalogMenuItemById(id));
-    return MenuItemModel.fromJson(unwrapEntity(response.data));
+  Future<List<ComponentModel>> findComponents(String vendorId) async {
+    final response =
+        await _apiClient.get(ApiEndpoints.componentsByVendor(vendorId));
+    return parseListResponse(response.data, ComponentModel.fromJson);
   }
 
-  Future<List<MenuComponentModel>> findComponents(String itemId) async {
+  Future<List<ComponentCategoryModel>> findComponentCategories(
+    String vendorId,
+  ) async {
+    final response = await _apiClient
+        .get(ApiEndpoints.componentCategoriesByVendor(vendorId));
+    return parseListResponse(response.data, ComponentCategoryModel.fromJson);
+  }
+
+  Future<List<TakeawayOptionModel>> findTakeawayOptions(String vendorId) async {
     final response = await _apiClient.get(
-      ApiEndpoints.catalogMenuComponents(itemId),
+      ApiEndpoints.takeawayOptionsByVendor(vendorId),
       queryParameters: {'page': 1, 'limit': 50},
     );
-    return PaginatedResponse<MenuComponentModel>.fromJson(
+    return PaginatedResponse<TakeawayOptionModel>.fromJson(
       unwrapPage(response.data),
-      MenuComponentModel.fromJson,
-    ).data;
-  }
-
-  Future<List<PackagingOptionModel>> findPackagingOptions(String itemId) async {
-    final response = await _apiClient.get(
-      ApiEndpoints.catalogPackagingOptions(itemId),
-      queryParameters: {'page': 1, 'limit': 20},
-    );
-    return PaginatedResponse<PackagingOptionModel>.fromJson(
-      unwrapPage(response.data),
-      PackagingOptionModel.fromJson,
+      TakeawayOptionModel.fromJson,
     ).data;
   }
 }
@@ -170,6 +114,131 @@ class CatalogRepository {
 final catalogRepositoryProvider = Provider<CatalogRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
   return CatalogRepository(apiClient);
+});
+
+class ReportRepository {
+  final ApiClient _apiClient;
+
+  ReportRepository(this._apiClient);
+
+  Future<ReportModel> createReport({
+    required String orderId,
+    required String type,
+    String? comment,
+  }) async {
+    final response = await _apiClient.post(
+      ApiEndpoints.reports,
+      data: {
+        'orderId': orderId,
+        'type': type,
+        if (comment != null && comment.trim().isNotEmpty)
+          'comment': comment.trim(),
+      },
+    );
+    return ReportModel.fromJson(unwrapEntity(response.data));
+  }
+
+  Future<PaginatedResponse<ReportModel>> findMyReports({
+    int page = 1,
+    int limit = 20,
+    String? orderId,
+  }) async {
+    final response = await _apiClient.get(
+      ApiEndpoints.reports,
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        if (orderId != null) 'orderId': orderId,
+      },
+    );
+    return PaginatedResponse<ReportModel>.fromJson(
+      unwrapPage(response.data),
+      ReportModel.fromJson,
+    );
+  }
+}
+
+final reportRepositoryProvider = Provider<ReportRepository>((ref) {
+  final apiClient = ref.watch(apiClientProvider);
+  return ReportRepository(apiClient);
+});
+
+class ScheduledOrderRepository {
+  final ApiClient _apiClient;
+
+  ScheduledOrderRepository(this._apiClient);
+
+  Future<ScheduledOrderModel> create({
+    required String vendorId,
+    required String scheduledFor,
+    required List<Map<String, dynamic>> items,
+    required String consumptionMode,
+    String? takeawayOptionId,
+  }) async {
+    final response = await _apiClient.post(
+      ApiEndpoints.scheduledOrders,
+      data: {
+        'vendorId': vendorId,
+        'scheduledFor': scheduledFor,
+        'items': items,
+        'consumptionMode': consumptionMode,
+        if (takeawayOptionId != null) 'takeawayOptionId': takeawayOptionId,
+      },
+    );
+    return ScheduledOrderModel.fromJson(unwrapEntity(response.data));
+  }
+
+  Future<PaginatedResponse<ScheduledOrderModel>> findAll({
+    int page = 1,
+    int limit = 20,
+    String? status,
+  }) async {
+    final response = await _apiClient.get(
+      ApiEndpoints.scheduledOrders,
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        if (status != null) 'status': status,
+      },
+    );
+    return PaginatedResponse<ScheduledOrderModel>.fromJson(
+      unwrapPage(response.data),
+      ScheduledOrderModel.fromJson,
+    );
+  }
+
+  Future<ScheduledOrderModel> getById(String id) async {
+    final response = await _apiClient.get(ApiEndpoints.scheduledOrderById(id));
+    return ScheduledOrderModel.fromJson(unwrapEntity(response.data));
+  }
+
+  Future<ScheduledOrderModel> cancel(String id) async {
+    final response =
+        await _apiClient.post(ApiEndpoints.scheduledOrderCancel(id));
+    return ScheduledOrderModel.fromJson(unwrapEntity(response.data));
+  }
+}
+
+final scheduledOrderRepositoryProvider =
+    Provider<ScheduledOrderRepository>((ref) {
+  final apiClient = ref.watch(apiClientProvider);
+  return ScheduledOrderRepository(apiClient);
+});
+
+class ReferralRepository {
+  final ApiClient _apiClient;
+
+  ReferralRepository(this._apiClient);
+
+  Future<ReferralMeModel> getMine() async {
+    final response = await _apiClient.get(ApiEndpoints.referralsMe);
+    return ReferralMeModel.fromJson(unwrapEntity(response.data));
+  }
+}
+
+final referralRepositoryProvider = Provider<ReferralRepository>((ref) {
+  final apiClient = ref.watch(apiClientProvider);
+  return ReferralRepository(apiClient);
 });
 
 class TransactionRepository {
@@ -182,7 +251,6 @@ class TransactionRepository {
     int limit = 20,
     String? type,
     String? status,
-    String? userId,
   }) async {
     final response = await _apiClient.get(
       ApiEndpoints.transactions,
@@ -191,7 +259,6 @@ class TransactionRepository {
         'limit': limit,
         if (type != null) 'type': type,
         if (status != null) 'status': status,
-        if (userId != null) 'userId': userId,
       },
     );
     return PaginatedResponse<TransactionModel>.fromJson(
@@ -211,78 +278,47 @@ final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   return TransactionRepository(apiClient);
 });
 
-class AmbassadorRepository {
-  final ApiClient _apiClient;
-
-  AmbassadorRepository(this._apiClient);
-
-  Future<AmbassadorModel> submitApplication({
-    required String institution,
-    required String facultyId,
-    required String schoolCardUrl,
-    String? promoCode,
-  }) async {
-    final response = await _apiClient.post(
-      ApiEndpoints.ambassadorsApply,
-      data: {
-        'institution': institution,
-        'facultyId': facultyId,
-        'schoolCardUrl': schoolCardUrl,
-        if (promoCode != null && promoCode.isNotEmpty) 'promoCode': promoCode,
-      },
-    );
-    return AmbassadorModel.fromJson(unwrapEntity(response.data));
-  }
-
-  Future<AmbassadorModel?> getMyAmbassadorProfile() async {
-    try {
-      final response = await _apiClient.get(ApiEndpoints.ambassadorsMe);
-      return AmbassadorModel.fromJson(unwrapEntity(response.data));
-    } catch (error) {
-      final status = (error as dynamic).response?.statusCode;
-      if (status == 404) return null;
-      rethrow;
-    }
-  }
-
-  Future<String> uploadSchoolCard(String filePath) async {
-    final form = FormData.fromMap({
-      'file': await MultipartFile.fromFile(filePath),
-    });
-    final response = await _apiClient.post(
-      ApiEndpoints.ambassadorsSchoolCard,
-      data: form,
-    );
-    final json = unwrapEntity(response.data);
-    return json['url'] as String? ?? '';
-  }
-}
-
-final ambassadorRepositoryProvider = Provider<AmbassadorRepository>((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  return AmbassadorRepository(apiClient);
-});
-
 class PaymentRepository {
   final ApiClient _apiClient;
 
   PaymentRepository(this._apiClient);
 
-  Future<RechargeQuote> previewRecharge(int amountFcfa) async {
+  /// Preview : tickets souhaités (recommandé) ou montant payé.
+  Future<RechargeQuote> previewRecharge({
+    int? ticketsDesired,
+    int? amountFcfa,
+  }) async {
+    final data = <String, dynamic>{};
+    if (ticketsDesired != null) {
+      data['ticketsDesired'] = ticketsDesired;
+    } else if (amountFcfa != null) {
+      data['amountFcfa'] = amountFcfa;
+    } else {
+      throw ArgumentError('ticketsDesired ou amountFcfa requis');
+    }
     final response = await _apiClient.post(
       ApiEndpoints.paymentsPreview,
-      data: {'amountFcfa': amountFcfa},
+      data: data,
     );
     return RechargeQuote.fromJson(unwrapEntity(response.data));
   }
 
   Future<({PaymentModel payment, RechargeQuote recap})> createPaymentIntent({
-    required int amountFcfa,
+    int? ticketsReceived,
+    int? amountFcfa,
     required String operator,
   }) async {
+    final data = <String, dynamic>{'operator': operator};
+    if (ticketsReceived != null) {
+      data['ticketsReceived'] = ticketsReceived;
+    } else if (amountFcfa != null) {
+      data['amountFcfa'] = amountFcfa;
+    } else {
+      throw ArgumentError('ticketsReceived ou amountFcfa requis');
+    }
     final response = await _apiClient.post(
       ApiEndpoints.paymentsIntent,
-      data: {'amountFcfa': amountFcfa, 'operator': operator},
+      data: data,
     );
     final json = unwrapEntity(response.data);
     final paymentJson = json['payment'] is Map

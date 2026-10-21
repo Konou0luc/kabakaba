@@ -56,7 +56,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     onRefresh: () => refreshStudentSession(ref),
                     child: SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(20, 26, 20, 40),
+                      padding: const EdgeInsets.fromLTRB(20, 26, 20, 120),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -89,7 +89,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               GestureDetector(
                                 onTap: () => context.push('/canteen-list'),
                                 child: Text(
-                                  'Voir tout',
+                                  'Voir plus',
                                   style: GoogleFonts.plusJakartaSans(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -316,18 +316,20 @@ class _HomePageState extends ConsumerState<HomePage> {
       );
     }
 
+    final preview = vendors.take(3).toList();
     return SizedBox(
-      height: 228,
+      height: 132,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: vendors.length,
+        clipBehavior: Clip.none,
+        itemCount: preview.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
-          final canteen = vendors[index];
+          final canteen = preview[index];
           return KabaCanteenPoster(
             vendor: canteen,
-            width: 198,
-            height: 228,
+            width: 268,
+            height: 132,
             onTap: () => context.push('/canteen-detail', extra: canteen.id),
           )
               .animate()
@@ -405,7 +407,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Widget _buildPromoBanner() {
     return GestureDetector(
-      onTap: () => context.push('/ambassador-presentation'),
+      onTap: () => context.push('/referral'),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(16, 16, 14, 16),
@@ -431,7 +433,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
-                Icons.workspace_premium_rounded,
+                Icons.card_giftcard_rounded,
                 color: AppColors.accent,
                 size: 20,
               ),
@@ -442,7 +444,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Programme ambassadeur',
+                    'Parrainage kabakaba',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
@@ -451,7 +453,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Parraine le campus, gagne des commissions',
+                    'Invite un ami : 100 tickets à sa 1ʳᵉ recharge',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,

@@ -12,6 +12,7 @@ import '../network/repositories.dart';
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await ensureFirebaseInitialized();
+  await PushNotifications.ensureAndroidChannels();
 }
 
 Future<void> ensureFirebaseInitialized() async {
@@ -32,12 +33,30 @@ class PushNotifications {
   String? _token;
   bool _started = false;
 
-  static const _channel = AndroidNotificationChannel(
+  static const defaultChannel = AndroidNotificationChannel(
     'kabakaba_default',
     'Kabakaba',
-    description: 'Commandes, recharges et compte étudiant',
+    description: 'Recharges et compte étudiant',
     importance: Importance.high,
   );
+
+  static const ordersChannel = AndroidNotificationChannel(
+    'kabakaba_orders',
+    'Commandes',
+    description: 'Statut de tes commandes (préparation, prête…)',
+    importance: Importance.max,
+    playSound: true,
+    enableVibration: true,
+  );
+
+  static Future<void> ensureAndroidChannels() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    final plugin = FlutterLocalNotificationsPlugin();
+    final android = plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await android?.createNotificationChannel(defaultChannel);
+    await android?.createNotificationChannel(ordersChannel);
+  }
 
   Future<void> start() async {
     if (kIsWeb) {
@@ -73,7 +92,7 @@ class PushNotifications {
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
       await android?.requestNotificationsPermission();
-      await android?.createNotificationChannel(_channel);
+      await ensureAndroidChannels();
     }
 
     await _plugin.initialize(
@@ -141,25 +160,44 @@ class PushNotifications {
     _token = null;
   }
 
+  static bool isOrderEvent(RemoteMessage message) {
+    final kind = message.data['kind'] ?? '';
+    return kind.startsWith('ORDER_') || kind == 'NEW_ORDER';
+  }
+
   Future<void> _showForeground(RemoteMessage message) async {
     final notification = message.notification;
     final title = notification?.title ?? message.data['title'];
     final body = notification?.body ?? message.data['body'];
     if (title == null && body == null) return;
+
+    final orderEvent = isOrderEvent(message);
+    final channel = orderEvent ? ordersChannel : defaultChannel;
+    final ready = (message.data['kind'] ?? '') == 'ORDER_READY';
+
     await _plugin.show(
       id: message.hashCode,
       title: title,
       body: body,
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
-          _channel.id,
-          _channel.name,
-          channelDescription: _channel.description,
-          importance: Importance.high,
-          priority: Priority.high,
+          channel.id,
+          channel.name,
+          channelDescription: channel.description,
+          importance: ready ? Importance.max : Importance.high,
+          priority: ready ? Priority.max : Priority.high,
           icon: '@mipmap/launcher_icon',
+          playSound: true,
+          enableVibration: true,
         ),
-        iOS: const DarwinNotificationDetails(),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+          interruptionLevel: ready
+              ? InterruptionLevel.timeSensitive
+              : InterruptionLevel.active,
+        ),
       ),
     );
   }

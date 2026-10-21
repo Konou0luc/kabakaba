@@ -12,6 +12,15 @@ String toTogoE164(String raw) {
   return '+228${toTogoLocalDigits(raw)}';
 }
 
+/// Format d’envoi initiate selon l’opérateur :
+/// - FLOOZ → `+228XXXXXXXX`
+/// - MIXX  → `XXXXXXXX` (sans 228, doc FedaPay togocel)
+String toMobileMoneyPhone(String raw, String operator) {
+  final local = toTogoLocalDigits(raw);
+  if (operator.toUpperCase() == 'MIXX') return local;
+  return '+228$local';
+}
+
 String formatTogoDisplay(String raw) {
   final local = toTogoLocalDigits(raw);
   if (local.length <= 2) return local;

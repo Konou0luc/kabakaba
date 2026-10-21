@@ -22,8 +22,11 @@ class RechargeStep2SelfPage extends ConsumerStatefulWidget {
 }
 
 class _RechargeStep2SelfPageState extends ConsumerState<RechargeStep2SelfPage> {
-  static const _presets = [600, 1200, 2200, 3250, 5300, 10500];
-  int? _selectedAmount;
+  /// Tickets souhaités (frais ajoutés côté serveur → montant à payer).
+  static const _presets = [500, 1000, 2000, 5000, 9000];
+  static const _minTickets = 400;
+  static const _maxTickets = 9500;
+  int? _selectedTickets;
   final _customController = TextEditingController();
   RechargeQuote? _quote;
   bool _loadingQuote = false;
@@ -34,12 +37,12 @@ class _RechargeStep2SelfPageState extends ConsumerState<RechargeStep2SelfPage> {
     super.dispose();
   }
 
-  int get _amount =>
-      _selectedAmount ?? (int.tryParse(_customController.text) ?? 0);
+  int get _tickets =>
+      _selectedTickets ?? (int.tryParse(_customController.text) ?? 0);
 
   Future<void> _refreshQuote() async {
-    final amount = _amount;
-    if (amount < 600) {
+    final tickets = _tickets;
+    if (tickets < _minTickets || tickets > _maxTickets) {
       setState(() => _quote = null);
       return;
     }
@@ -47,7 +50,7 @@ class _RechargeStep2SelfPageState extends ConsumerState<RechargeStep2SelfPage> {
     try {
       final quote = await ref
           .read(paymentRepositoryProvider)
-          .previewRecharge(amount);
+          .previewRecharge(ticketsDesired: tickets);
       if (mounted) setState(() => _quote = quote);
     } catch (error) {
       if (!mounted) return;
@@ -62,7 +65,7 @@ class _RechargeStep2SelfPageState extends ConsumerState<RechargeStep2SelfPage> {
     if (_quote == null) {
       showKabaSnack(
         context,
-        'Choisis un montant à recharger (600 à 10 500 FCFA).',
+        'Choisis les tickets que tu veux recevoir (400 à 9 500).',
         error: true,
       );
       return;
@@ -84,7 +87,7 @@ class _RechargeStep2SelfPageState extends ConsumerState<RechargeStep2SelfPage> {
     ].where((part) => part != null && part.isNotEmpty).join(' ');
 
     return LightPageScaffold(
-      title: 'Montant à payer',
+      title: 'Tickets à créditer',
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: Column(
@@ -135,9 +138,19 @@ class _RechargeStep2SelfPageState extends ConsumerState<RechargeStep2SelfPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             Text(
-              'Montant en FCFA (frais inclus)',
+              'Tickets à recevoir. Les frais s’ajoutent au paiement.',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                height: 1.45,
+                fontWeight: FontWeight.w500,
+                color: LightPageColors.muted,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Tickets souhaités',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
@@ -153,14 +166,14 @@ class _RechargeStep2SelfPageState extends ConsumerState<RechargeStep2SelfPage> {
               crossAxisSpacing: 10,
               childAspectRatio: 1.25,
               children: List.generate(_presets.length, (i) {
-                final amount = _presets[i];
-                final selected = _selectedAmount == amount;
+                final tickets = _presets[i];
+                final selected = _selectedTickets == tickets;
                 return Material(
                   color: Colors.transparent,
                   child: InkWell(
                     onTap: () {
                       setState(() {
-                        _selectedAmount = amount;
+                        _selectedTickets = tickets;
                         _customController.clear();
                       });
                       _refreshQuote();
@@ -183,7 +196,7 @@ class _RechargeStep2SelfPageState extends ConsumerState<RechargeStep2SelfPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            formatTickets(amount),
+                            formatTickets(tickets),
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
@@ -193,7 +206,7 @@ class _RechargeStep2SelfPageState extends ConsumerState<RechargeStep2SelfPage> {
                             ),
                           ),
                           Text(
-                            'FCFA',
+                            'tickets',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
@@ -212,7 +225,7 @@ class _RechargeStep2SelfPageState extends ConsumerState<RechargeStep2SelfPage> {
               controller: _customController,
               keyboardType: TextInputType.number,
               onChanged: (_) {
-                setState(() => _selectedAmount = null);
+                setState(() => _selectedTickets = null);
                 _refreshQuote();
               },
               style: GoogleFonts.plusJakartaSans(
@@ -223,7 +236,7 @@ class _RechargeStep2SelfPageState extends ConsumerState<RechargeStep2SelfPage> {
               decoration: InputDecoration(
                 filled: true,
                 fillColor: LightPageColors.white,
-                hintText: 'Montant personnalisé (600 à 10 500)',
+                hintText: 'Tickets personnalisés (400 à 9 500)',
                 hintStyle: GoogleFonts.plusJakartaSans(
                   fontSize: 13,
                   color: LightPageColors.muted,
@@ -261,18 +274,21 @@ class _RechargeStep2SelfPageState extends ConsumerState<RechargeStep2SelfPage> {
                 padding: const EdgeInsets.all(14),
                 child: Column(
                   children: [
-                    _row('Tu paies', '${formatTickets(_quote!.amountFcfa)} FCFA'),
-                    const SizedBox(height: 8),
-                    _row(
-                      'Frais inclus',
-                      '${formatTickets(_quote!.feeFcfa)} FCFA',
-                    ),
-                    const SizedBox(height: 10),
-                    Container(height: 1, color: LightPageColors.border),
-                    const SizedBox(height: 10),
                     _row(
                       'Tickets crédités',
                       formatTickets(_quote!.ticketsReceived),
+                    ),
+                    const SizedBox(height: 8),
+                    _row(
+                      'Frais de service',
+                      '${formatTickets(_quote!.feeFcfa)} FCFA',
+                    ),
+                    const SizedBox(height: 10),
+                    const Divider(height: 1),
+                    const SizedBox(height: 10),
+                    _row(
+                      'Tu paies',
+                      '${formatTickets(_quote!.amountFcfa)} FCFA',
                       emphasize: true,
                     ),
                   ],
@@ -283,7 +299,9 @@ class _RechargeStep2SelfPageState extends ConsumerState<RechargeStep2SelfPage> {
             SizedBox(
               width: double.infinity,
               child: LightButton(
-                text: 'Continuer vers le paiement',
+                text: _quote == null
+                    ? 'Continuer vers le paiement'
+                    : 'Payer ${formatTickets(_quote!.amountFcfa)} FCFA',
                 icon: Icons.arrow_forward_rounded,
                 isPrimary: _quote != null,
                 onPressed: _continue,

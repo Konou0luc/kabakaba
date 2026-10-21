@@ -41,8 +41,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       if (!mounted) return;
       final order = ref.read(orderDetailProvider(widget.orderId)).valueOrNull;
       if (order == null) return;
-      if (order.status == OrderStatus.PENDING ||
-          order.status == OrderStatus.READY) {
+      if (orderIsActive(order.status)) {
         ref.invalidate(orderDetailProvider(widget.orderId));
       }
     });
@@ -56,59 +55,33 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   }
 
   String _label(OrderStatus status) => switch (status) {
-        OrderStatus.PENDING => 'En attente du vendeur',
-        OrderStatus.ACCEPTED => 'Acceptée',
+        OrderStatus.CONFIRMED => 'Confirmée',
         OrderStatus.IN_PREPARATION => 'En préparation',
         OrderStatus.READY => 'Prête à retirer',
-        OrderStatus.RECEIVED ||
-        OrderStatus.AUTO_RECEIVED ||
-        OrderStatus.COMPLETED =>
-          'Retirée',
-        OrderStatus.REFUSED => 'Refusée',
-        OrderStatus.CANCELLED_VENDOR ||
-        OrderStatus.CANCELLED_STUDENT ||
-        OrderStatus.CANCELLED =>
-          'Annulée',
-        OrderStatus.REFUNDED => 'Remboursée',
-        _ => status.name,
+        OrderStatus.RECEIVED => 'Retirée',
+        OrderStatus.CANCELLED => 'Annulée',
       };
 
   Color _statusColor(OrderStatus status) => switch (status) {
         OrderStatus.READY => AppColors.success,
-        OrderStatus.IN_PREPARATION || OrderStatus.ACCEPTED => const Color(0xFF6366F1),
-        OrderStatus.PENDING => LightPageColors.warning,
-        OrderStatus.REFUSED ||
-        OrderStatus.CANCELLED_VENDOR ||
-        OrderStatus.CANCELLED_STUDENT ||
-        OrderStatus.CANCELLED =>
-          LightPageColors.red,
-        OrderStatus.REFUNDED => LightPageColors.muted,
-        _ => LightPageColors.indigo,
+        OrderStatus.IN_PREPARATION => const Color(0xFF6366F1),
+        OrderStatus.CONFIRMED => LightPageColors.indigo,
+        OrderStatus.CANCELLED => LightPageColors.red,
+        OrderStatus.RECEIVED => LightPageColors.muted,
       };
 
   int _progress(OrderStatus status) => switch (status) {
-        OrderStatus.PENDING || OrderStatus.ACCEPTED => 1,
+        OrderStatus.CONFIRMED => 1,
         OrderStatus.IN_PREPARATION => 2,
         OrderStatus.READY => 3,
-        OrderStatus.RECEIVED ||
-        OrderStatus.AUTO_RECEIVED ||
-        OrderStatus.COMPLETED =>
-          4,
-        _ => 0,
+        OrderStatus.RECEIVED => 4,
+        OrderStatus.CANCELLED => 0,
       };
 
   String _ref(OrderModel order) => '#${order.displayCode}';
 
   int _remainingSeconds(OrderModel order) {
-    if (order.status == OrderStatus.PENDING) {
-      final elapsed = DateTime.now().difference(order.createdAt).inSeconds;
-      return (300 - elapsed).clamp(0, 300);
-    }
-    if (order.status == OrderStatus.READY) {
-      final start = order.readyAt ?? order.updatedAt;
-      final elapsed = DateTime.now().difference(start).inSeconds;
-      return (3600 - elapsed).clamp(0, 3600);
-    }
+    // Pas de timer 5 min : la commande est confirmée immédiatement.
     return 0;
   }
 
@@ -245,18 +218,6 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             .slideY(begin: 0.04, duration: 320.ms),
         const SizedBox(height: 16),
         _PickupCodeCard(code: order.displayCode),
-        if (order.status == OrderStatus.PENDING ||
-            order.status == OrderStatus.READY) ...[
-          const SizedBox(height: 12),
-          _CountdownCard(
-            seconds: _remainingSeconds(order),
-            label: order.status == OrderStatus.PENDING
-                ? 'Le vendeur a 5 min pour accepter'
-                : 'Tu as 1 h pour récupérer et confirmer',
-            formatted: _formatCountdown(_remainingSeconds(order)),
-            pending: order.status == OrderStatus.PENDING,
-          ),
-        ],
         const SizedBox(height: 20),
         const LightSectionTitle(title: 'Articles'),
         ...order.items.map(
@@ -349,34 +310,20 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             ],
           ),
         ),
-        if (order.reason != null && order.reason!.trim().isNotEmpty) ...[
+        if (order.cancellationReason != null &&
+            order.cancellationReason!.trim().isNotEmpty) ...[
           const SizedBox(height: 12),
           LightHintBox(
-            text: order.reason!.trim(),
-            isWarning: order.status == OrderStatus.REFUSED ||
-                order.status == OrderStatus.CANCELLED_VENDOR ||
-                order.status == OrderStatus.CANCELLED_STUDENT ||
-                order.status == OrderStatus.CANCELLED,
+            text: order.cancellationReason!.trim(),
+            isWarning: order.status == OrderStatus.CANCELLED,
           ),
-        ],
-        if (_canReview(order)) ...[
-          const SizedBox(height: 16),
-          _OrderReviewCard(order: order),
         ],
       ],
     );
   }
 
-  bool _canReview(OrderModel order) {
-    if (order.hasReview) return false;
-    return order.status == OrderStatus.READY ||
-        order.status == OrderStatus.RECEIVED ||
-        order.status == OrderStatus.AUTO_RECEIVED;
-  }
-
   Widget? _actions(OrderModel order) {
-    final canReceive = order.status == OrderStatus.READY;
-    final canCancel = order.status == OrderStatus.PENDING;
+    final canCancel = order.status == OrderStatus.CONFIRMED;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -399,15 +346,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (canReceive)
-              LightButton(
-                text: 'J’ai récupéré',
-                icon: Icons.check_rounded,
-                isLoading: _busy,
-                onPressed: _busy ? null : () => _receive(order.id),
-              ),
             if (canCancel) ...[
-              if (canReceive) const SizedBox(height: 8),
               LightButton(
                 text: 'Annuler la commande',
                 isPrimary: false,
@@ -415,8 +354,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                 isLoading: _busy,
                 onPressed: _busy ? null : () => _cancel(order.id),
               ),
+              const SizedBox(height: 8),
             ],
-            if (canReceive || canCancel) const SizedBox(height: 8),
             LightButton(
               text: 'Recommander',
               isPrimary: false,
@@ -427,23 +366,6 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         ),
       ),
     );
-  }
-
-  Future<void> _receive(String id) async {
-    setState(() => _busy = true);
-    try {
-      await ref.read(orderRepositoryProvider).confirmReceive(id);
-      ref.invalidate(myOrdersProvider);
-      ref.invalidate(orderDetailProvider(id));
-      ref.invalidate(meProvider);
-      if (mounted) showKabaSnack(context, 'Commande marquée comme retirée');
-    } catch (error) {
-      if (mounted) {
-        showKabaSnack(context, apiErrorMessage(error), error: true);
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
   }
 
   Future<void> _cancel(String id) async {
@@ -469,11 +391,13 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   void _reorder(OrderModel order) {
     final lines = [
       for (final item in order.items)
-        if (item.menuItemId != null && item.menuItemId!.isNotEmpty)
+        if ((item.menuId != null && item.menuId!.isNotEmpty) ||
+            (item.componentId != null && item.componentId!.isNotEmpty))
           CartLine(
             vendorId: order.vendorId,
             vendorName: order.vendorName,
-            menuItemId: item.menuItemId!,
+            menuId: item.menuId,
+            componentId: item.componentId,
             name: item.name,
             priceTickets: item.priceTickets,
             quantity: item.quantity,

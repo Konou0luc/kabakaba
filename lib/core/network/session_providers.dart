@@ -34,14 +34,48 @@ final vendorDetailProvider = FutureProvider.family<VendorModel, String>((
   return ref.read(vendorRepositoryProvider).getVendorById(id);
 });
 
-final vendorMenuProvider = FutureProvider.family<List<MenuItemModel>, String>((
-  ref,
-  id,
-) async {
-  final page = await ref
+final vendorMenusProvider =
+    FutureProvider.family<List<MenuModel>, String>((ref, vendorId) {
+  return ref.read(catalogRepositoryProvider).findMenus(vendorId);
+});
+
+final vendorComponentsProvider =
+    FutureProvider.family<List<ComponentModel>, String>((ref, vendorId) {
+  return ref.read(catalogRepositoryProvider).findComponents(vendorId);
+});
+
+final vendorCategoriesProvider =
+    FutureProvider.family<List<ComponentCategoryModel>, String>((ref, vendorId) {
+  return ref
       .read(catalogRepositoryProvider)
-      .findAllMenuItems(vendorId: id, limit: 80);
-  return page.data;
+      .findComponentCategories(vendorId);
+});
+
+/// Alias utilisé by canteen_detail.
+final vendorComponentCategoriesProvider = vendorCategoriesProvider;
+
+final vendorTakeawayOptionsProvider =
+    FutureProvider.family<List<TakeawayOptionModel>, String>((ref, vendorId) {
+  return ref.read(catalogRepositoryProvider).findTakeawayOptions(vendorId);
+});
+
+/// Alias takeaway (cart_page).
+final takeawayOptionsProvider = vendorTakeawayOptionsProvider;
+
+/// Alias pour les écrans qui listaient encore « le menu » d’une cantine.
+final vendorMenuProvider = vendorMenusProvider;
+
+/// Lookup d’un menu dans le catalogue vendeur (remplace menuItemProvider).
+final menuFromVendorProvider =
+    FutureProvider.family<MenuModel?, ({String vendorId, String menuId})>((
+  ref,
+  args,
+) async {
+  final menus = await ref.watch(vendorMenusProvider(args.vendorId).future);
+  for (final menu in menus) {
+    if (menu.id == args.menuId) return menu;
+  }
+  return null;
 });
 
 final myOrdersProvider = FutureProvider<List<OrderModel>>((ref) async {
@@ -77,36 +111,13 @@ final myNotificationsProvider = FutureProvider<List<NotificationModel>>((
   return page.data;
 });
 
-final myAmbassadorProvider = FutureProvider<AmbassadorModel?>((ref) async {
+final myReferralProvider = FutureProvider<ReferralMeModel?>((ref) async {
   ref.watch(authProvider);
-  return ref.read(ambassadorRepositoryProvider).getMyAmbassadorProfile();
-});
-
-final facultiesProvider = FutureProvider.family<List<FacultyModel>, String>((
-  ref,
-  campusId,
-) async {
-  final faculties = await ref
-      .read(campusRepositoryProvider)
-      .findFaculties(campusId);
-  return faculties.where((faculty) => faculty.active).toList();
-});
-
-final menuItemProvider = FutureProvider.family<MenuItemModel, String>((
-  ref,
-  id,
-) {
-  return ref.read(catalogRepositoryProvider).getMenuItemById(id);
-});
-
-final menuComponentsProvider =
-    FutureProvider.family<List<MenuComponentModel>, String>((ref, itemId) {
-  return ref.read(catalogRepositoryProvider).findComponents(itemId);
-});
-
-final packagingOptionsProvider =
-    FutureProvider.family<List<PackagingOptionModel>, String>((ref, itemId) {
-  return ref.read(catalogRepositoryProvider).findPackagingOptions(itemId);
+  try {
+    return await ref.read(referralRepositoryProvider).getMine();
+  } catch (_) {
+    return null;
+  }
 });
 
 final orderDetailProvider = FutureProvider.family<OrderModel, String>((
@@ -132,7 +143,7 @@ Future<void> refreshStudentSession(WidgetRef ref) async {
     await ref.read(myNotificationsProvider.future);
     ref.invalidate(vendorsListProvider);
     await ref.read(vendorsListProvider.future);
-    ref.invalidate(myAmbassadorProvider);
+    ref.invalidate(myReferralProvider);
   } finally {
     _sessionRefreshBusy = false;
   }

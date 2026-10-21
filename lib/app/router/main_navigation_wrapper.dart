@@ -52,7 +52,10 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper> {
         path.startsWith('/about') ||
         path.startsWith('/legal') ||
         path.startsWith('/campus') ||
-        path.startsWith('/ambassador')) {
+        path.startsWith('/ambassador') ||
+        path.startsWith('/referral') ||
+        path.startsWith('/promo-code') ||
+        path.startsWith('/commission-history')) {
       return 4;
     }
     return 0;

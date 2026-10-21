@@ -22,16 +22,15 @@ class UserModel {
   final String? avatarUrl;
   final UserRole role;
   final String? campusId;
+  final String? referralCode;
   final int walletBalance;
-  final int walletHeld;
-  final int escrowBalance;
   final bool isSuspended;
   final DateTime? suspensionUntil;
   final String? suspensionReason;
   final bool mustChangePassword;
   final bool notifyOrders;
-  final bool notifyAmbassador;
   final bool notifyPromotions;
+  final bool hasPin;
 
   UserModel({
     required this.id,
@@ -45,22 +44,19 @@ class UserModel {
     this.avatarUrl,
     required this.role,
     this.campusId,
+    this.referralCode,
     required this.walletBalance,
-    this.walletHeld = 0,
-    required this.escrowBalance,
     required this.isSuspended,
     this.suspensionUntil,
     this.suspensionReason,
     required this.mustChangePassword,
     required this.notifyOrders,
-    required this.notifyAmbassador,
     required this.notifyPromotions,
+    this.hasPin = false,
   });
 
-  int get availableTickets {
-    final available = walletBalance - walletHeld;
-    return available < 0 ? 0 : available;
-  }
+  /// Balance is fully available — no walletHeld / escrow anymore.
+  int get availableTickets => walletBalance < 0 ? 0 : walletBalance;
 
   String get displayFirstName {
     final name = firstName?.trim();
@@ -96,16 +92,15 @@ class UserModel {
         avatarUrl: json.optionalString('avatarUrl'),
         role: userRoleFromJson(json.stringOr('role', 'STUDENT')),
         campusId: json.optionalString('campusId'),
+        referralCode: json.optionalString('referralCode'),
         walletBalance: json.intOr('walletBalance', 0),
-        walletHeld: json.intOr('walletHeld', 0),
-        escrowBalance: json.intOr('escrowBalance', 0),
         isSuspended: json.boolOr('isSuspended', false),
         suspensionUntil: json.optionalDateTime('suspensionUntil'),
         suspensionReason: json.optionalString('suspensionReason'),
         mustChangePassword: json.boolOr('mustChangePassword', false),
         notifyOrders: json.boolOr('notifyOrders', true),
-        notifyAmbassador: json.boolOr('notifyAmbassador', true),
         notifyPromotions: json.boolOr('notifyPromotions', false),
+        hasPin: json.boolOr('hasPin', false),
       );
 
   Map<String, dynamic> toJson() => {
@@ -120,17 +115,16 @@ class UserModel {
         if (avatarUrl != null) 'avatarUrl': avatarUrl,
         'role': userRoleToJson(role),
         if (campusId != null) 'campusId': campusId,
+        if (referralCode != null) 'referralCode': referralCode,
         'walletBalance': walletBalance,
-        'walletHeld': walletHeld,
-        'escrowBalance': escrowBalance,
         'isSuspended': isSuspended,
         if (suspensionUntil != null)
           'suspensionUntil': suspensionUntil!.toIso8601String(),
         if (suspensionReason != null) 'suspensionReason': suspensionReason,
         'mustChangePassword': mustChangePassword,
         'notifyOrders': notifyOrders,
-        'notifyAmbassador': notifyAmbassador,
         'notifyPromotions': notifyPromotions,
+        'hasPin': hasPin,
       };
 
   UserModel copyWith({
@@ -145,16 +139,15 @@ class UserModel {
     String? avatarUrl,
     UserRole? role,
     String? campusId,
+    String? referralCode,
     int? walletBalance,
-    int? walletHeld,
-    int? escrowBalance,
     bool? isSuspended,
     DateTime? suspensionUntil,
     String? suspensionReason,
     bool? mustChangePassword,
     bool? notifyOrders,
-    bool? notifyAmbassador,
     bool? notifyPromotions,
+    bool? hasPin,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -168,16 +161,15 @@ class UserModel {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       role: role ?? this.role,
       campusId: campusId ?? this.campusId,
+      referralCode: referralCode ?? this.referralCode,
       walletBalance: walletBalance ?? this.walletBalance,
-      walletHeld: walletHeld ?? this.walletHeld,
-      escrowBalance: escrowBalance ?? this.escrowBalance,
       isSuspended: isSuspended ?? this.isSuspended,
       suspensionUntil: suspensionUntil ?? this.suspensionUntil,
       suspensionReason: suspensionReason ?? this.suspensionReason,
       mustChangePassword: mustChangePassword ?? this.mustChangePassword,
       notifyOrders: notifyOrders ?? this.notifyOrders,
-      notifyAmbassador: notifyAmbassador ?? this.notifyAmbassador,
       notifyPromotions: notifyPromotions ?? this.notifyPromotions,
+      hasPin: hasPin ?? this.hasPin,
     );
   }
 }

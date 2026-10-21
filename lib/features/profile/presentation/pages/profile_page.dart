@@ -45,7 +45,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   Future<void> _setNotify({
     bool? orders,
-    bool? ambassador,
     bool? promos,
   }) async {
     final user = _user;
@@ -54,7 +53,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       final updated = await ref.read(userRepositoryProvider).updateUser(
         id: user.id,
         notifyOrders: orders,
-        notifyAmbassador: ambassador,
         notifyPromotions: promos,
       );
       ref.read(authProvider.notifier).updateCurrentUser(updated);
@@ -282,13 +280,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               onChanged: (v) => _setNotify(orders: v),
             ),
             LightToggleRow(
-              icon: Icons.emoji_events_outlined,
-              title: 'Programme ambassadeur',
-              subtitle: 'Niveau, commissions, décisions',
-              value: user?.notifyAmbassador ?? true,
-              onChanged: (v) => _setNotify(ambassador: v),
-            ),
-            LightToggleRow(
               icon: Icons.local_offer_outlined,
               title: 'Promotions & nouveautés',
               subtitle: 'Offres et actualités kabakaba',
@@ -302,7 +293,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 
   Widget _buildAmbassadorCard() {
-    final ambassador = ref.watch(myAmbassadorProvider).valueOrNull;
+    final referral = ref.watch(myReferralProvider).valueOrNull;
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -329,7 +320,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  ambassador?.status ?? 'PAS ENCORE INSCRIT',
+                  referral?.referralCode ?? 'PARRAINAGE',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
@@ -338,7 +329,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 ),
               ),
               const Icon(
-                Icons.workspace_premium_rounded,
+                Icons.card_giftcard_rounded,
                 color: Color(0xFFFFB347),
                 size: 22,
               ),
@@ -346,7 +337,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ),
           const SizedBox(height: 10),
           Text(
-            'Ambassadeur kabakaba',
+            'Parrainage kabakaba',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 14,
               fontWeight: FontWeight.w800,
@@ -355,9 +346,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ),
           const SizedBox(height: 4),
           Text(
-            ambassador == null
-                ? 'Candidate pour gagner des commissions sur les recharges.'
-                : '${ambassador.totalReferrals} filleuls · ${ambassador.status}',
+            referral == null
+                ? 'Partage ton code : 100 tickets à la 1re recharge d’un filleul.'
+                : '${referral.referredCount} filleuls · ${referral.totalRewardTickets} tickets gagnés',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 11,
               color: Colors.white.withValues(alpha: 0.65),
@@ -370,14 +361,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               Expanded(
                 child: _ambStat(
                   label: 'FILLEULS',
-                  value: '${ambassador?.totalReferrals ?? 0}',
+                  value: '${referral?.referredCount ?? 0}',
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: _ambStat(
-                  label: 'COMMISSION',
-                  value: '${ambassador?.totalCommissionEarned ?? 0}',
+                  label: 'TICKETS',
+                  value: '${referral?.totalRewardTickets ?? 0}',
                 ),
               ),
             ],
@@ -389,11 +380,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () => context.push(
-                  ambassador == null
-                      ? '/ambassador-presentation'
-                      : '/ambassador-dashboard',
-                ),
+                onTap: () => context.push('/referral'),
                 borderRadius: BorderRadius.circular(10),
                 child: Container(
                   decoration: BoxDecoration(
@@ -402,9 +389,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   ),
                   alignment: Alignment.center,
                   child: Text(
-                    ambassador == null
-                        ? 'Devenir ambassadeur'
-                        : 'Tableau de bord',
+                    'Voir mon code',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,

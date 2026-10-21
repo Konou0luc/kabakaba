@@ -9,6 +9,7 @@ import '../../../../core/utils/ticket_format.dart';
 import '../../../../core/utils/kaba_snack.dart';
 import '../../../../shared/models/api_models.dart';
 import '../../../../features/auth/data/auth_provider.dart';
+import '../../../../shared/widgets/kaba_bottom_sheet_modal.dart';
 import '../../../../shared/widgets/kaba_premium.dart';
 import '../../../../shared/widgets/light_page_scaffold.dart';
 import '../../../../shared/widgets/remote_photo.dart';
@@ -27,12 +28,6 @@ class _CartPageState extends ConsumerState<CartPage> {
 
   List<CartLine> get _items => ref.watch(cartProvider).lines;
 
-  int get _userBalance {
-    final user =
-        ref.watch(meProvider).valueOrNull ?? ref.watch(currentUserProvider);
-    return user?.walletBalance ?? 0;
-  }
-
   int get _availableTickets {
     final user =
         ref.watch(meProvider).valueOrNull ?? ref.watch(currentUserProvider);
@@ -43,11 +38,6 @@ class _CartPageState extends ConsumerState<CartPage> {
 
   bool get _hasEnough => _availableTickets >= _totalPrice && _items.isNotEmpty;
 
-  bool get _blockedByHold =>
-      _items.isNotEmpty &&
-      _userBalance >= _totalPrice &&
-      _availableTickets < _totalPrice;
-
   void _updateQty(int index, int delta) {
     final line = _items[index];
     ref
@@ -55,33 +45,45 @@ class _CartPageState extends ConsumerState<CartPage> {
         .setQuantityByKey(line.lineKey, line.quantity + delta);
   }
 
+  Future<void> _confirmClearCart() async {
+    if (_items.isEmpty) return;
+    final confirmed = await KabaBottomSheetModal.confirmClearCart(context);
+    if (!confirmed || !mounted) return;
+    ref.read(cartProvider.notifier).clear();
+    showKabaSnack(context, 'Panier vidé');
+  }
+
   Future<void> _checkout() async {
     final cart = ref.read(cartProvider);
     if (cart.isEmpty || cart.vendorId == null) return;
     if (!_hasEnough) {
-      if (_blockedByHold) {
-        showKabaSnack(
-          context,
-          'Une partie de tes tickets est gelée pour une commande en cours.',
-          error: true,
-        );
-        return;
-      }
       context.push('/recharge/step1');
+      return;
+    }
+    if (cart.consumptionMode == ConsumptionMode.TAKEAWAY &&
+        (cart.takeawayOptionId == null || cart.takeawayOptionId!.isEmpty)) {
+      showKabaSnack(
+        context,
+        'Choisis une option d’emporté',
+        error: true,
+      );
       return;
     }
     setState(() => _paying = true);
     try {
       await ref.read(orderRepositoryProvider).createOrder(
-        vendorId: cart.vendorId!,
-        items: [for (final line in cart.lines) line.toOrderJson()],
-        packagingOptionId: cart.packagingOptionId,
-      );
+            vendorId: cart.vendorId!,
+            items: [for (final line in cart.lines) line.toOrderJson()],
+            consumptionMode: cart.consumptionMode.name,
+            takeawayOptionId: cart.consumptionMode == ConsumptionMode.TAKEAWAY
+                ? cart.takeawayOptionId
+                : null,
+          );
       ref.read(cartProvider.notifier).clear();
       ref.invalidate(meProvider);
       ref.invalidate(myOrdersProvider);
       if (!mounted) return;
-      showKabaSnack(context, 'Commande envoyée');
+      showKabaSnack(context, 'Commande confirmée');
       context.push('/order-history');
     } catch (error) {
       if (mounted) showKabaSnack(context, apiErrorMessage(error), error: true);
@@ -96,15 +98,25 @@ class _CartPageState extends ConsumerState<CartPage> {
       title: 'Mon panier',
       showBackButton: true,
       actions: [
-        if (_items.isNotEmpty)
+        if (_items.isNotEmpty) ...[
+          IconButton(
+            tooltip: 'Vider le panier',
+            onPressed: _confirmClearCart,
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              color: LightPageColors.muted,
+              size: 22,
+            ),
+          ),
           Padding(
-            padding: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.only(right: 12),
             child: LightBadge(
               text: '${_items.length}',
               bgColor: LightPageColors.orangeLight,
               color: LightPageColors.orange,
             ),
           ),
+        ],
       ],
       body: _items.isEmpty
           ? _buildEmpty()
@@ -119,7 +131,9 @@ class _CartPageState extends ConsumerState<CartPage> {
                         const SizedBox(height: 14),
                         ...List.generate(_items.length, (i) {
                           return Padding(
-                            padding: EdgeInsets.only(bottom: i == _items.length - 1 ? 0 : 12),
+                            padding: EdgeInsets.only(
+                              bottom: i == _items.length - 1 ? 0 : 12,
+                            ),
                             child: _buildItem(i).animate().fadeIn(
                                   delay: (50 * i).ms,
                                   begin: 0.8,
@@ -127,7 +141,7 @@ class _CartPageState extends ConsumerState<CartPage> {
                           );
                         }),
                         const SizedBox(height: 16),
-                        _buildPackagingOption(),
+                        _buildConsumptionMode(),
                         const SizedBox(height: 16),
                         _buildSummary(),
                       ],
@@ -204,7 +218,7 @@ class _CartPageState extends ConsumerState<CartPage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${cart.itemCount} plats',
+                  '${cart.itemCount} article(s)',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 11.5,
                     color: LightPageColors.muted,
@@ -215,10 +229,12 @@ class _CartPageState extends ConsumerState<CartPage> {
           ),
           if (vendor != null)
             KabaStatusPill(
-              label: vendor.isOpen ? 'Ouverte' : 'Fermée',
-              color: vendor.isOpen
-                  ? LightPageColors.green
-                  : LightPageColors.muted,
+              label: vendor.capacityLabel,
+              color: switch (vendor.capacityStatus) {
+                VendorCapacity.OPEN => LightPageColors.green,
+                VendorCapacity.BUSY => LightPageColors.warning,
+                VendorCapacity.CLOSED => LightPageColors.muted,
+              },
             ),
         ],
       ),
@@ -231,23 +247,19 @@ class _CartPageState extends ConsumerState<CartPage> {
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
-          RemotePhoto(
-            url: item.imageUrl,
+          Container(
             width: 68,
             height: 68,
-            radius: 11,
-            fallback: Container(
-              width: 68,
-              height: 68,
-              decoration: BoxDecoration(
-                color: LightPageColors.indigoLight,
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Icon(
-                Icons.restaurant_rounded,
-                color: LightPageColors.indigo,
-                size: 26,
-              ),
+            decoration: BoxDecoration(
+              color: LightPageColors.indigoLight,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(
+              item.isMenu
+                  ? Icons.restaurant_menu_rounded
+                  : Icons.egg_alt_rounded,
+              color: LightPageColors.indigo,
+              size: 26,
             ),
           ),
           const SizedBox(width: 12),
@@ -265,23 +277,19 @@ class _CartPageState extends ConsumerState<CartPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (item.components.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    item.components
-                        .map((c) => '${c.name} ×${c.quantity}')
-                        .join(' · '),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10.5,
-                      color: LightPageColors.muted,
-                    ),
+                const SizedBox(height: 2),
+                Text(
+                  item.isMenu
+                      ? 'Menu'
+                      : (item.unit ?? 'Composant'),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10.5,
+                    color: LightPageColors.muted,
                   ),
-                ],
+                ),
                 const SizedBox(height: 3),
                 Text(
-                  '${formatTickets(item.unitTotal)} tickets',
+                  '${formatTickets(item.priceTickets)} tickets',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -342,175 +350,210 @@ class _CartPageState extends ConsumerState<CartPage> {
     );
   }
 
-  Widget _buildPackagingOption() {
-    final firstItemId = _items.isEmpty ? null : _items.first.menuItemId;
-    final options = firstItemId == null
-        ? const <PackagingOptionModel>[]
-        : ref.watch(packagingOptionsProvider(firstItemId)).valueOrNull ??
-            const <PackagingOptionModel>[];
-    if (options.isEmpty) return const SizedBox.shrink();
-    final selectedId = ref.watch(cartProvider).packagingOptionId;
+  Widget _buildConsumptionMode() {
+    final cart = ref.watch(cartProvider);
+    final vendorId = cart.vendorId;
+    final options = vendorId == null
+        ? const <TakeawayOptionModel>[]
+        : ref.watch(takeawayOptionsProvider(vendorId)).valueOrNull ??
+            const <TakeawayOptionModel>[];
 
     return LightCard(
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            'Mode de consommation',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              color: LightPageColors.text,
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
-              Icon(
-                Icons.shopping_bag_outlined,
-                color: LightPageColors.indigo,
-                size: 18,
+              Expanded(
+                child: _modeChip(
+                  label: 'Sur place',
+                  icon: Icons.restaurant_rounded,
+                  selected: cart.consumptionMode == ConsumptionMode.ON_SITE,
+                  onTap: () => ref
+                      .read(cartProvider.notifier)
+                      .setConsumptionMode(ConsumptionMode.ON_SITE),
+                ),
               ),
               const SizedBox(width: 8),
-              Text(
-                'Options de retrait',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  color: LightPageColors.text,
+              Expanded(
+                child: _modeChip(
+                  label: 'À emporter',
+                  icon: Icons.takeout_dining_rounded,
+                  selected: cart.consumptionMode == ConsumptionMode.TAKEAWAY,
+                  onTap: () {
+                    ref
+                        .read(cartProvider.notifier)
+                        .setConsumptionMode(ConsumptionMode.TAKEAWAY);
+                    if (options.length == 1) {
+                      ref.read(cartProvider.notifier).setTakeawayOption(
+                            optionId: options.first.id,
+                            fee: options.first.priceTickets,
+                          );
+                    }
+                  },
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          ...options.map((option) {
-            final selected = selectedId == option.id;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: InkWell(
-                onTap: () => ref.read(cartProvider.notifier).setPackaging(
-                      optionId: option.id,
-                      extra: option.extraCost,
-                    ),
-                borderRadius: BorderRadius.circular(11),
-                child: _packagingRow(
-                  icon: option.extraCost > 0
-                      ? Icons.takeout_dining_outlined
-                      : Icons.restaurant_outlined,
-                  title: option.name,
-                  subtitle: option.extraCost == 0
-                      ? 'Sans supplément'
-                      : '+${formatTickets(option.extraCost)} tickets',
-                  price: option.extraCost,
-                  selected: selected,
+          if (cart.consumptionMode == ConsumptionMode.TAKEAWAY) ...[
+            const SizedBox(height: 14),
+            if (options.isEmpty)
+              Text(
+                'Aucune option d’emporté pour cette cantine.',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  color: LightPageColors.red,
+                  fontWeight: FontWeight.w600,
                 ),
-              ),
-            );
-          }),
+              )
+            else
+              ...options.map((option) {
+                final selected = cart.takeawayOptionId == option.id;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: InkWell(
+                    onTap: () => ref.read(cartProvider.notifier).setTakeawayOption(
+                          optionId: option.id,
+                          fee: option.priceTickets,
+                        ),
+                    borderRadius: BorderRadius.circular(11),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 11,
+                      ),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? LightPageColors.orangeLight.withValues(alpha: 0.6)
+                            : LightPageColors.bg,
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(
+                          color: selected
+                              ? LightPageColors.orange.withValues(alpha: 0.5)
+                              : LightPageColors.border,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  option.name,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: LightPageColors.text,
+                                  ),
+                                ),
+                                Text(
+                                  option.priceTickets == 0
+                                      ? 'Sans supplément'
+                                      : '+${formatTickets(option.priceTickets)} tickets',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 10.5,
+                                    color: LightPageColors.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            selected
+                                ? Icons.check_circle_rounded
+                                : Icons.circle_outlined,
+                            size: 20,
+                            color: selected
+                                ? LightPageColors.orange
+                                : LightPageColors.muted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+          ],
         ],
       ),
     );
   }
 
-  Widget _packagingRow({
+  Widget _modeChip({
+    required String label,
     required IconData icon,
-    required String title,
-    required String subtitle,
-    required int price,
     required bool selected,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-      decoration: BoxDecoration(
-        color: selected
-            ? LightPageColors.orangeLight.withValues(alpha: 0.6)
-            : LightPageColors.bg,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
           color: selected
-              ? LightPageColors.orange.withValues(alpha: 0.5)
-              : LightPageColors.border,
-          width: 1.5,
+              ? LightPageColors.orange.withValues(alpha: 0.12)
+              : LightPageColors.bg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? LightPageColors.orange : LightPageColors.border,
+            width: selected ? 1.6 : 1,
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: selected
-                  ? LightPageColors.orange.withValues(alpha: 0.18)
-                  : LightPageColors.white,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(
+        child: Column(
+          children: [
+            Icon(
               icon,
-              size: 16,
-              color: selected ? LightPageColors.orange : LightPageColors.text2,
+              size: 20,
+              color: selected ? LightPageColors.orange : LightPageColors.muted,
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: LightPageColors.text,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10.5,
-                    color: LightPageColors.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 18,
-            height: 18,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: selected ? LightPageColors.orange : LightPageColors.white,
-              border: Border.all(
-                color: selected
-                    ? LightPageColors.orange
-                    : LightPageColors.border,
-                width: 2,
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: selected ? LightPageColors.orange : LightPageColors.text,
               ),
             ),
-            child: selected
-                ? const Icon(Icons.check_rounded, size: 12, color: Colors.white)
-                : null,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildSummary() {
+    final cart = ref.watch(cartProvider);
     return LightCard(
       padding: const EdgeInsets.all(14),
       child: Column(
         children: [
           _summaryRow(
             'Sous-total',
-            '${formatTickets(ref.watch(cartProvider).itemsTickets)} tickets',
+            '${formatTickets(cart.itemsTickets)} tickets',
           ),
-          if (ref.watch(cartProvider).packagingExtra > 0) ...[
+          if (cart.consumptionMode == ConsumptionMode.TAKEAWAY &&
+              cart.takeawayFeeTickets > 0) ...[
             const SizedBox(height: 10),
             _summaryRow(
-              'Emballage',
-              '+${formatTickets(ref.watch(cartProvider).packagingExtra)} tickets',
+              'Emporté',
+              '+${formatTickets(cart.takeawayFeeTickets)} tickets',
             ),
           ],
           const SizedBox(height: 10),
-          _summaryRow('Frais de service', '0 tickets', isFree: true),
-          const SizedBox(height: 10),
-          Container(
-            height: 1,
-            color: LightPageColors.border,
-          ),
+          Container(height: 1, color: LightPageColors.border),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -538,7 +581,7 @@ class _CartPageState extends ConsumerState<CartPage> {
     );
   }
 
-  Widget _summaryRow(String label, String value, {bool isFree = false}) {
+  Widget _summaryRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -547,7 +590,6 @@ class _CartPageState extends ConsumerState<CartPage> {
           style: GoogleFonts.plusJakartaSans(
             fontSize: 12.5,
             color: LightPageColors.text2,
-            fontWeight: FontWeight.w500,
           ),
         ),
         Text(
@@ -555,7 +597,7 @@ class _CartPageState extends ConsumerState<CartPage> {
           style: GoogleFonts.plusJakartaSans(
             fontSize: 12.5,
             fontWeight: FontWeight.w700,
-            color: isFree ? LightPageColors.green : LightPageColors.text,
+            color: LightPageColors.text,
           ),
         ),
       ],
@@ -606,7 +648,7 @@ class _CartPageState extends ConsumerState<CartPage> {
                       ),
                       const SizedBox(height: 1),
                       Text(
-                        '$_userBalance tickets',
+                        '$_availableTickets tickets',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w800,
@@ -618,32 +660,25 @@ class _CartPageState extends ConsumerState<CartPage> {
                     ],
                   ),
                 ),
-                Text(
-                  '${_hasEnough ? '✓' : '⚠'}  ${(_userBalance - _totalPrice).abs()}',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: _hasEnough ? LightPageColors.green : LightPageColors.red,
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 12),
             LightButton(
-              text: _hasEnough
-                  ? 'Payer avec les tickets'
-                  : _blockedByHold
-                      ? 'Tickets gelés — commande en cours'
+              text: _paying
+                  ? 'Confirmation…'
+                  : _hasEnough
+                      ? 'Confirmer la commande'
                       : 'Solde insuffisant — Recharger',
               icon: _hasEnough
-                  ? Icons.payment_rounded
+                  ? Icons.check_rounded
                   : Icons.add_circle_outline_rounded,
               isPrimary: _hasEnough,
+              isLoading: _paying,
               onPressed: _paying
                   ? null
                   : _hasEnough
-                  ? _checkout
-                  : () => context.push('/recharge/step1'),
+                      ? _checkout
+                      : () => context.push('/recharge/step1'),
             ),
           ],
         ),

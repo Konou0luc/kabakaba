@@ -57,21 +57,6 @@ class CampusRepository {
     final response = await _apiClient.get(ApiEndpoints.campusById(id));
     return CampusModel.fromJson(unwrapEntity(response.data));
   }
-
-  Future<List<FacultyModel>> findFaculties(String campusId) async {
-    final response = await _apiClient.get(ApiEndpoints.campusFaculties(campusId));
-    final raw = response.data;
-    if (raw is List) {
-      return raw
-          .whereType<Map>()
-          .map((item) => FacultyModel.fromJson(Map<String, dynamic>.from(item)))
-          .toList();
-    }
-    return PaginatedResponse<FacultyModel>.fromJson(
-      unwrapPage(raw),
-      FacultyModel.fromJson,
-    ).data;
-  }
 }
 
 final campusRepositoryProvider = Provider<CampusRepository>((ref) {

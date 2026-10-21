@@ -26,7 +26,7 @@ class OrderHistoryPage extends ConsumerStatefulWidget {
 
 class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
   int _tab = 0;
-  final List<String> tabs = const ['En attente', 'Préparation', 'Historique'];
+  final List<String> tabs = const ['Confirmées', 'En cours', 'Historique'];
   Timer? _poll;
 
   @override
@@ -48,18 +48,7 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
       await ref.read(orderRepositoryProvider).cancelOrder(id);
       ref.invalidate(myOrdersProvider);
       ref.invalidate(meProvider);
-      if (mounted) showKabaSnack(context, 'Commande annulée');
-    } catch (error) {
-      if (mounted) showKabaSnack(context, apiErrorMessage(error), error: true);
-    }
-  }
-
-  Future<void> _confirmReceive(String id) async {
-    try {
-      await ref.read(orderRepositoryProvider).confirmReceive(id);
-      ref.invalidate(myOrdersProvider);
-      ref.invalidate(meProvider);
-      if (mounted) showKabaSnack(context, 'Commande marquée comme retirée');
+      if (mounted) showKabaSnack(context, 'Commande annulée — tickets remboursés');
     } catch (error) {
       if (mounted) showKabaSnack(context, apiErrorMessage(error), error: true);
     }
@@ -68,11 +57,13 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
   void _reorder(OrderModel order) {
     final lines = [
       for (final item in order.items)
-        if (item.menuItemId != null && item.menuItemId!.isNotEmpty)
+        if ((item.menuId != null && item.menuId!.isNotEmpty) ||
+            (item.componentId != null && item.componentId!.isNotEmpty))
           CartLine(
             vendorId: order.vendorId,
             vendorName: order.vendorName,
-            menuItemId: item.menuItemId!,
+            menuId: item.menuId,
+            componentId: item.componentId,
             name: item.name,
             priceTickets: item.priceTickets,
             quantity: item.quantity,
@@ -99,14 +90,8 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
               .map((line) => '${line.name} · ${line.quantity}x')
               .join(' · ');
     final (badge, color, progress, statusKey) = switch (order.status) {
-      OrderStatus.PENDING => (
-        'En attente',
-        LightPageColors.warning,
-        1,
-        'pending',
-      ),
-      OrderStatus.ACCEPTED => (
-        'Acceptée',
+      OrderStatus.CONFIRMED => (
+        'Confirmée',
         LightPageColors.warning,
         1,
         'pending',
@@ -118,11 +103,8 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
         'prepping',
       ),
       OrderStatus.READY => ('Prête', LightPageColors.green, 3, 'prepping'),
-      OrderStatus.REFUSED => ('Refusée', LightPageColors.red, 0, 'cancelled'),
-      OrderStatus.CANCELLED_VENDOR ||
-      OrderStatus.CANCELLED_STUDENT ||
       OrderStatus.CANCELLED => ('Annulée', LightPageColors.red, 0, 'cancelled'),
-      _ => ('Terminée', LightPageColors.muted, 4, 'history'),
+      OrderStatus.RECEIVED => ('Récupérée', LightPageColors.muted, 4, 'history'),
     };
     return {
       'id': order.id,
@@ -135,9 +117,12 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
       'time': _formatWhen(order.createdAt),
       'eta': order.readyAt != null ? _formatWhen(order.readyAt!) : '—',
       'code': order.displayCode,
-      'pickup': 'Sur place',
+      'pickup': order.consumptionMode == ConsumptionMode.TAKEAWAY
+          ? 'À emporter'
+          : 'Sur place',
       'status': statusKey,
       'ready': order.status == OrderStatus.READY,
+      'canCancel': order.status == OrderStatus.CONFIRMED,
       'color': color,
       'badge': badge,
       'date': _formatWhen(order.createdAt),
@@ -417,14 +402,7 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                           runSpacing: 8,
                           alignment: WrapAlignment.end,
                           children: [
-                            if (o['ready'] == true)
-                              LightButton(
-                                text: 'J’ai récupéré',
-                                compact: true,
-                                onPressed: () =>
-                                    _confirmReceive(o['id'] as String),
-                              ),
-                            if (o['status'] == 'pending')
+                            if (o['canCancel'] == true)
                               LightButton(
                                 text: 'Annuler',
                                 icon: Icons.close_rounded,
@@ -447,8 +425,7 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                               text: 'Détails',
                               icon: Icons.arrow_forward_rounded,
                               compact: true,
-                              isPrimary: o['ready'] != true &&
-                                  o['status'] != 'pending',
+                              isPrimary: o['canCancel'] != true,
                               onPressed: () => context.push(
                                 '/order-detail',
                                 extra: o['id'] as String,
@@ -575,12 +552,12 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
     return KabaEmptyState(
       icon: Icons.receipt_long_outlined,
       title: switch (_tab) {
-        0 => 'Aucune commande en attente',
+        0 => 'Aucune commande confirmée',
         1 => 'Rien en préparation',
         _ => 'Aucune commande passée',
       },
       subtitle: switch (_tab) {
-        0 => 'Trouve une cantine et passe ta première commande.',
+        0 => 'Tes commandes confirmées apparaîtront ici.',
         1 => 'Tes commandes en cours apparaîtront ici.',
         _ => 'Ton historique de commandes apparaîtra ici.',
       },

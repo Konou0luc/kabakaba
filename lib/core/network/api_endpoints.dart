@@ -11,40 +11,37 @@ class ApiEndpoints {
   static const String usersMe = '/users/me';
   static String userById(String id) => '/users/$id';
   static const String usersStaff = '/users/staff';
+  static const String usersMeAvatar = '/users/me/avatar';
 
   static const String vendors = '/vendors';
   static String vendorById(String id) => '/vendors/$id';
 
   static const String campuses = '/campuses';
   static String campusById(String id) => '/campuses/$id';
-  static String campusFaculties(String campusId) =>
-      '/campuses/$campusId/faculties';
 
-  static const String catalogMenuItems = '/catalog/menu-items';
-  static String catalogMenuItemById(String id) => '/catalog/menu-items/$id';
-  static String catalogMenuComponents(String itemId) => '/catalog/menu-components/$itemId';
-  static String catalogMenuComponentDetail(String id) => '/catalog/menu-components/detail/$id';
-  static String catalogPackagingOptions(String itemId) => '/catalog/packaging-options/$itemId';
-  static String catalogPackagingOptionDetail(String id) => '/catalog/packaging-options/detail/$id';
+  static String menusByVendor(String vendorId) => '/menus/$vendorId';
+  static String componentsByVendor(String vendorId) => '/components/$vendorId';
+  static String componentCategoriesByVendor(String vendorId) =>
+      '/component-categories/$vendorId';
+  static String takeawayOptionsByVendor(String vendorId) =>
+      '/catalog/takeaway-options/$vendorId';
 
   static const String orders = '/orders';
   static String orderById(String id) => '/orders/$id';
   static String orderCancel(String id) => '/orders/$id/cancel';
-  static String orderReceive(String id) => '/orders/$id/receive';
-  static String orderDispute(String id) => '/orders/$id/dispute';
 
-  static const String usersMeAvatar = '/users/me/avatar';
+  static const String reports = '/reports';
+  static String reportById(String id) => '/reports/$id';
 
-  static const String walletSend = '/wallet/send';
+  static const String scheduledOrders = '/scheduled-orders';
+  static String scheduledOrderById(String id) => '/scheduled-orders/$id';
+  static String scheduledOrderCancel(String id) =>
+      '/scheduled-orders/$id/cancel';
+
+  static const String referralsMe = '/referrals/me';
 
   static const String transactions = '/transactions';
   static String transactionById(String id) => '/transactions/$id';
-
-  static const String ambassadors = '/ambassadors';
-  static const String ambassadorsMe = '/ambassadors/me';
-  static const String ambassadorsApply = '/ambassadors/apply';
-  static const String ambassadorsSchoolCard = '/ambassadors/school-card';
-  static String ambassadorById(String id) => '/ambassadors/$id';
 
   static const String payments = '/payments';
   static const String paymentsPreview = '/payments/preview';

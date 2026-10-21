@@ -84,7 +84,7 @@ class _ReferralPageState extends ConsumerState<ReferralPage> {
       totalSteps: 5,
       heroIcon: Icons.card_giftcard_outlined,
       heroTitle: 'Qui t\'a invité ?',
-      heroSubtitle: 'Code d\'un ambassadeur kabakaba — entièrement facultatif.',
+      heroSubtitle: 'Code de parrainage kabakaba — entièrement facultatif.',
       onBack: () => context.pop(),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

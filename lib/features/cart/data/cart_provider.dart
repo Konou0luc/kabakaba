@@ -4,134 +4,96 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/theme_provider.dart';
+import '../../../shared/models/api_models.dart';
 import '../../auth/data/auth_provider.dart';
-
-class CartComponent {
-  final String componentId;
-  final String name;
-  final int unitPriceTickets;
-  final int quantity;
-
-  const CartComponent({
-    required this.componentId,
-    required this.name,
-    required this.unitPriceTickets,
-    required this.quantity,
-  });
-
-  int get lineTotal => unitPriceTickets * quantity;
-
-  Map<String, dynamic> toOrderJson() => {
-        'componentId': componentId,
-        'quantity': quantity,
-      };
-
-  Map<String, dynamic> toJson() => {
-        'componentId': componentId,
-        'name': name,
-        'unitPriceTickets': unitPriceTickets,
-        'quantity': quantity,
-      };
-
-  factory CartComponent.fromJson(Map<String, dynamic> json) => CartComponent(
-        componentId: json['componentId'] as String? ?? '',
-        name: json['name'] as String? ?? 'Extra',
-        unitPriceTickets: (json['unitPriceTickets'] as num?)?.toInt() ?? 0,
-        quantity: (json['quantity'] as num?)?.toInt() ?? 1,
-      );
-}
+import '../../auth/data/auth_repository.dart';
 
 class CartLine {
   final String vendorId;
   final String vendorName;
-  final String menuItemId;
+  final String? menuId;
+  final String? componentId;
   final String name;
   final int priceTickets;
   final int quantity;
   final String? imageUrl;
-  final List<CartComponent> components;
+  final String? unit;
 
   const CartLine({
     required this.vendorId,
     required this.vendorName,
-    required this.menuItemId,
+    this.menuId,
+    this.componentId,
     required this.name,
     required this.priceTickets,
     required this.quantity,
     this.imageUrl,
-    this.components = const [],
+    this.unit,
   });
 
-  String get lineKey {
-    final extras = components
-        .map((item) => '${item.componentId}:${item.quantity}')
-        .join(',');
-    return '$menuItemId|$extras';
-  }
+  String get lineKey => menuId != null ? 'm:$menuId' : 'c:$componentId';
 
-  int get extrasTickets =>
-      components.fold(0, (sum, item) => sum + item.lineTotal);
+  int get lineTotal => priceTickets * quantity;
 
-  int get unitTotal => priceTickets + extrasTickets;
+  int get unitTotal => priceTickets;
 
-  int get lineTotal => unitTotal * quantity;
+  bool get isMenu => menuId != null && menuId!.isNotEmpty;
 
   CartLine copyWith({int? quantity}) => CartLine(
         vendorId: vendorId,
         vendorName: vendorName,
-        menuItemId: menuItemId,
+        menuId: menuId,
+        componentId: componentId,
         name: name,
         priceTickets: priceTickets,
         quantity: quantity ?? this.quantity,
         imageUrl: imageUrl,
-        components: components,
+        unit: unit,
       );
 
   Map<String, dynamic> toOrderJson() => {
-        'menuItemId': menuItemId,
+        if (menuId != null) 'menuId': menuId,
+        if (componentId != null) 'componentId': componentId,
         'quantity': quantity,
-        if (components.isNotEmpty)
-          'components': [
-            for (final item in components) item.toOrderJson(),
-          ],
       };
 
   Map<String, dynamic> toJson() => {
         'vendorId': vendorId,
         'vendorName': vendorName,
-        'menuItemId': menuItemId,
+        'menuId': menuId,
+        'componentId': componentId,
         'name': name,
         'priceTickets': priceTickets,
         'quantity': quantity,
         'imageUrl': imageUrl,
-        'components': [for (final item in components) item.toJson()],
+        'unit': unit,
       };
 
   factory CartLine.fromJson(Map<String, dynamic> json) => CartLine(
         vendorId: json['vendorId'] as String? ?? '',
         vendorName: json['vendorName'] as String? ?? 'Cantine',
-        menuItemId: json['menuItemId'] as String? ?? '',
-        name: json['name'] as String? ?? 'Plat',
+        menuId: json['menuId'] as String? ??
+            (json['menuItemId'] as String?), // migrate old carts
+        componentId: json['componentId'] as String?,
+        name: json['name'] as String? ?? 'Article',
         priceTickets: (json['priceTickets'] as num?)?.toInt() ?? 0,
         quantity: (json['quantity'] as num?)?.toInt() ?? 1,
         imageUrl: json['imageUrl'] as String?,
-        components: [
-          for (final item in (json['components'] as List? ?? const [])
-              .whereType<Map>())
-            CartComponent.fromJson(Map<String, dynamic>.from(item)),
-        ],
+        unit: json['unit'] as String?,
       );
 }
 
 class CartState {
   final List<CartLine> lines;
-  final String? packagingOptionId;
-  final int packagingExtra;
+  final ConsumptionMode consumptionMode;
+  final String? takeawayOptionId;
+  final int takeawayFeeTickets;
 
   const CartState({
     this.lines = const [],
-    this.packagingOptionId,
-    this.packagingExtra = 0,
+    this.consumptionMode = ConsumptionMode.ON_SITE,
+    this.takeawayOptionId,
+    this.takeawayFeeTickets = 0,
   });
 
   String? get vendorId => lines.isEmpty ? null : lines.first.vendorId;
@@ -142,60 +104,99 @@ class CartState {
 
   int get itemsTickets => lines.fold(0, (sum, line) => sum + line.lineTotal);
 
-  int get totalTickets => itemsTickets + packagingExtra;
+  int get totalTickets =>
+      itemsTickets +
+      (consumptionMode == ConsumptionMode.TAKEAWAY ? takeawayFeeTickets : 0);
+
+  int get packagingExtra => takeawayFeeTickets;
 
   bool get isEmpty => lines.isEmpty;
 
   Map<String, dynamic> toJson() => {
-        'packagingOptionId': packagingOptionId,
-        'packagingExtra': packagingExtra,
+        'consumptionMode': consumptionMode.name,
+        'takeawayOptionId': takeawayOptionId,
+        'takeawayFeeTickets': takeawayFeeTickets,
         'lines': [for (final line in lines) line.toJson()],
       };
 
-  factory CartState.fromJson(Map<String, dynamic> json) => CartState(
-        packagingOptionId: json['packagingOptionId'] as String?,
-        packagingExtra: (json['packagingExtra'] as num?)?.toInt() ?? 0,
-        lines: [
-          for (final item
-              in (json['lines'] as List? ?? const []).whereType<Map>())
-            CartLine.fromJson(Map<String, dynamic>.from(item)),
-        ],
-      );
+  factory CartState.fromJson(Map<String, dynamic> json) {
+    final mode = (json['consumptionMode'] as String?)?.toUpperCase() ==
+            'TAKEAWAY'
+        ? ConsumptionMode.TAKEAWAY
+        : ConsumptionMode.ON_SITE;
+    return CartState(
+      consumptionMode: mode,
+      takeawayOptionId: json['takeawayOptionId'] as String? ??
+          json['packagingOptionId'] as String?,
+      takeawayFeeTickets: (json['takeawayFeeTickets'] as num?)?.toInt() ??
+          (json['packagingExtra'] as num?)?.toInt() ??
+          0,
+      lines: [
+        for (final item
+            in (json['lines'] as List? ?? const []).whereType<Map>())
+          CartLine.fromJson(Map<String, dynamic>.from(item)),
+      ].where((line) => line.menuId != null || line.componentId != null).toList(),
+    );
+  }
 }
 
 class CartNotifier extends Notifier<CartState> {
-  static const _storageKey = 'student_cart_v1';
+  static const _legacyKey = 'student_cart_v1';
+  static const _sharedKey = 'student_cart_v2';
 
   SharedPreferences get _prefs => ref.read(sharedPreferencesProvider);
+
+  String get _storageKey {
+    final uid = ref.read(authRepositoryProvider).getCurrentUserId();
+    if (uid == null || uid.isEmpty) return _sharedKey;
+    return '${_sharedKey}_$uid';
+  }
 
   @override
   CartState build() {
     ref.listen(authProvider, (previous, next) {
-      if (next != AuthState.authenticated) {
-        clear();
+      if (next == AuthState.authenticated) {
+        // Restore from disk after login / session restore (never wipe storage here).
+        final stored = _readStored();
+        if (stored.lines.isNotEmpty || state.lines.isEmpty) {
+          state = stored;
+        }
+      } else if (previous == AuthState.authenticated) {
+        // Hide cart in UI on logout; keep prefs until the user clears or checks out.
+        state = const CartState();
       }
     });
-    Future.microtask(_hydrate);
-    return const CartState();
+    if (ref.read(authProvider) != AuthState.authenticated) {
+      return const CartState();
+    }
+    return _readStored();
   }
 
-  Future<void> _hydrate() async {
-    final raw = _prefs.getString(_storageKey);
-    if (raw == null || raw.isEmpty) return;
+  CartState _readStored() {
+    final raw = _prefs.getString(_storageKey) ??
+        _prefs.getString(_sharedKey) ??
+        _prefs.getString(_legacyKey);
+    if (raw == null || raw.isEmpty) return const CartState();
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is Map &&
-          ref.read(authProvider) == AuthState.authenticated) {
-        state = CartState.fromJson(Map<String, dynamic>.from(decoded));
+      if (decoded is Map) {
+        return CartState.fromJson(Map<String, dynamic>.from(decoded));
       }
     } catch (_) {}
+    return const CartState();
   }
 
   Future<void> _persist() async {
     await _prefs.setString(_storageKey, jsonEncode(state.toJson()));
+    // Drop legacy keys once we have a canonical user-scoped snapshot.
+    await _prefs.remove(_legacyKey);
+    if (_storageKey != _sharedKey) {
+      await _prefs.remove(_sharedKey);
+    }
   }
 
   bool add(CartLine line) {
+    if (line.menuId == null && line.componentId == null) return false;
     if (state.vendorId != null && state.vendorId != line.vendorId) {
       return false;
     }
@@ -203,8 +204,9 @@ class CartNotifier extends Notifier<CartState> {
     if (index < 0) {
       state = CartState(
         lines: [...state.lines, line],
-        packagingOptionId: state.packagingOptionId,
-        packagingExtra: state.packagingExtra,
+        consumptionMode: state.consumptionMode,
+        takeawayOptionId: state.takeawayOptionId,
+        takeawayFeeTickets: state.takeawayFeeTickets,
       );
       _persist();
       return true;
@@ -214,15 +216,19 @@ class CartNotifier extends Notifier<CartState> {
     next[index] = current.copyWith(quantity: current.quantity + line.quantity);
     state = CartState(
       lines: next,
-      packagingOptionId: state.packagingOptionId,
-      packagingExtra: state.packagingExtra,
+      consumptionMode: state.consumptionMode,
+      takeawayOptionId: state.takeawayOptionId,
+      takeawayFeeTickets: state.takeawayFeeTickets,
     );
     _persist();
     return true;
   }
 
   void replaceWith(CartLine line) {
-    state = CartState(lines: [line]);
+    state = CartState(
+      lines: [line],
+      consumptionMode: ConsumptionMode.ON_SITE,
+    );
     _persist();
   }
 
@@ -230,8 +236,9 @@ class CartNotifier extends Notifier<CartState> {
     if (quantity <= 0) {
       state = CartState(
         lines: state.lines.where((item) => item.lineKey != lineKey).toList(),
-        packagingOptionId: state.packagingOptionId,
-        packagingExtra: state.packagingExtra,
+        consumptionMode: state.consumptionMode,
+        takeawayOptionId: state.takeawayOptionId,
+        takeawayFeeTickets: state.takeawayFeeTickets,
       );
       _persist();
       return;
@@ -244,30 +251,46 @@ class CartNotifier extends Notifier<CartState> {
                 : item,
           )
           .toList(),
-      packagingOptionId: state.packagingOptionId,
-      packagingExtra: state.packagingExtra,
+      consumptionMode: state.consumptionMode,
+      takeawayOptionId: state.takeawayOptionId,
+      takeawayFeeTickets: state.takeawayFeeTickets,
     );
     _persist();
   }
 
-  void setQuantity(String menuItemId, int quantity) {
-    final match = state.lines.where((item) => item.menuItemId == menuItemId);
-    if (match.isEmpty) return;
-    setQuantityByKey(match.first.lineKey, quantity);
+  void setConsumptionMode(ConsumptionMode mode) {
+    if (mode == ConsumptionMode.ON_SITE) {
+      state = CartState(
+        lines: state.lines,
+        consumptionMode: ConsumptionMode.ON_SITE,
+      );
+    } else {
+      state = CartState(
+        lines: state.lines,
+        consumptionMode: ConsumptionMode.TAKEAWAY,
+        takeawayOptionId: state.takeawayOptionId,
+        takeawayFeeTickets: state.takeawayFeeTickets,
+      );
+    }
+    _persist();
   }
 
-  void setPackaging({String? optionId, int extra = 0}) {
+  void setTakeawayOption({String? optionId, int fee = 0}) {
     state = CartState(
       lines: state.lines,
-      packagingOptionId: optionId,
-      packagingExtra: extra,
+      consumptionMode: ConsumptionMode.TAKEAWAY,
+      takeawayOptionId: optionId,
+      takeawayFeeTickets: fee,
     );
     _persist();
   }
 
+  /// Clears cart in memory and on disk (checkout success or user-confirmed empty).
   void clear() {
     state = const CartState();
     _prefs.remove(_storageKey);
+    _prefs.remove(_sharedKey);
+    _prefs.remove(_legacyKey);
   }
 
   void reorderFrom({

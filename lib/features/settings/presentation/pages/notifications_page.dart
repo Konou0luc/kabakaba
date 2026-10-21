@@ -23,13 +23,16 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   List<NotificationModel> _applyFilter(List<NotificationModel> items) {
     if (_filter == 0) return items;
     return items.where((item) {
-      if (_filter == 1) return item.type == NotificationType.ORDER;
-      if (_filter == 2) {
-        return item.type == NotificationType.PROMOTION ||
-            item.type == NotificationType.AMBASSADOR;
+      final title = item.title.toLowerCase();
+      if (_filter == 1) {
+        return title.contains('commande') || title.contains('prête');
       }
-      return item.type == NotificationType.SYSTEM ||
-          item.type == NotificationType.PAYMENT;
+      if (_filter == 2) {
+        return title.contains('promo') || title.contains('parrain');
+      }
+      return item.type == NotificationType.INFO ||
+          item.type == NotificationType.WARNING ||
+          item.type == NotificationType.ERROR;
     }).toList();
   }
 
@@ -44,27 +47,22 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 
   (IconData, Color, Color) _styleOf(NotificationType type) {
     return switch (type) {
-      NotificationType.ORDER => (
-          Icons.restaurant_rounded,
-          LightPageColors.indigo,
-          LightPageColors.indigoLight,
-        ),
-      NotificationType.PAYMENT => (
-          Icons.account_balance_wallet_rounded,
+      NotificationType.SUCCESS => (
+          Icons.check_circle_rounded,
           LightPageColors.green,
           LightPageColors.greenLight,
         ),
-      NotificationType.PROMOTION => (
-          Icons.local_offer_rounded,
-          LightPageColors.orange,
-          LightPageColors.orangeLight,
-        ),
-      NotificationType.AMBASSADOR => (
-          Icons.emoji_events_rounded,
+      NotificationType.WARNING => (
+          Icons.warning_amber_rounded,
           LightPageColors.warning,
           LightPageColors.warningLight,
         ),
-      NotificationType.SYSTEM => (
+      NotificationType.ERROR => (
+          Icons.error_outline_rounded,
+          LightPageColors.red,
+          LightPageColors.orangeLight,
+        ),
+      NotificationType.INFO => (
           Icons.notifications_rounded,
           LightPageColors.indigo,
           LightPageColors.indigoLight,
