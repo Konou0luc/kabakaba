@@ -18,8 +18,10 @@ class TransactionHistoryPage extends ConsumerStatefulWidget {
 
 class _TransactionHistoryPageState extends ConsumerState<TransactionHistoryPage> {
   int _tab = 0;
+  int _day = 0;
   final searchController = TextEditingController();
   final List<String> tabs = const ['Toutes', 'Entrées', 'Sorties', 'Recharges'];
+  final List<String> days = const ['Aujourd’hui', 'Hier'];
 
   List<Map<String, dynamic>> get allTx {
     final api = ref.watch(myTransactionsProvider).valueOrNull ?? const [];
@@ -48,14 +50,17 @@ class _TransactionHistoryPageState extends ConsumerState<TransactionHistoryPage>
     final local = tx.createdAt.toLocal();
     final hh = local.hour.toString().padLeft(2, '0');
     final mm = local.minute.toString().padLeft(2, '0');
+    final label = tx.publicLabel;
+    final isCode = RegExp(r'^[A-Z]-\d{2}$').hasMatch(label);
     return {
       'type': incoming ? 'in' : 'out',
       'category': category,
       'title': title,
-      'subtitle': tx.reference ?? tx.status.name,
+      'subtitle': isCode ? 'Commande $label' : label,
       'amount': tx.amount,
+      'createdAt': tx.createdAt,
       'date': '${local.day}/${local.month} · ${hh}h$mm',
-      'ref': tx.reference ?? tx.id,
+      'ref': isCode ? label : '',
       'icon': incoming ? Icons.add_circle_rounded : Icons.restaurant_rounded,
       'status': tx.status == TransactionStatus.COMPLETED
           ? 'success'
@@ -65,9 +70,25 @@ class _TransactionHistoryPageState extends ConsumerState<TransactionHistoryPage>
     };
   }
 
+  bool _sameDay(DateTime value, DateTime day) {
+    final local = value.toLocal();
+    return local.year == day.year &&
+        local.month == day.month &&
+        local.day == day.day;
+  }
+
+  List<Map<String, dynamic>> get dayTx {
+    final now = DateTime.now();
+    final target = _day == 0 ? now : now.subtract(const Duration(days: 1));
+    return allTx
+        .where((t) => _sameDay(t['createdAt'] as DateTime, target))
+        .take(20)
+        .toList();
+  }
+
   List<Map<String, dynamic>> get filtered {
     final q = searchController.text.toLowerCase();
-    return allTx.where((t) {
+    return dayTx.where((t) {
       final matchTab = switch (_tab) {
         1 => t['type'] == 'in',
         2 => t['type'] == 'out',
@@ -90,10 +111,10 @@ class _TransactionHistoryPageState extends ConsumerState<TransactionHistoryPage>
 
   @override
   Widget build(BuildContext context) {
-    final entries = allTx
+    final entries = dayTx
         .where((t) => t['type'] == 'in')
         .fold(0, (s, t) => s + (t['amount'] as int));
-    final exits = allTx
+    final exits = dayTx
         .where((t) => t['type'] == 'out')
         .fold(0, (s, t) => s + (t['amount'] as int));
     return LightPageScaffold(
@@ -104,6 +125,12 @@ class _TransactionHistoryPageState extends ConsumerState<TransactionHistoryPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSummary(entries, exits),
+            const SizedBox(height: 14),
+            LightTabs(
+              tabs: days,
+              selectedIndex: _day,
+              onTap: (i) => setState(() => _day = i),
+            ),
             const SizedBox(height: 18),
             _buildSearch(),
             const SizedBox(height: 16),
@@ -180,7 +207,7 @@ class _TransactionHistoryPageState extends ConsumerState<TransactionHistoryPage>
               ),
               const SizedBox(width: 10),
               Text(
-                'Période du mois',
+                _day == 0 ? 'Aujourd’hui' : 'Hier',
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -195,7 +222,7 @@ class _TransactionHistoryPageState extends ConsumerState<TransactionHistoryPage>
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  'Août 2026',
+                  '20 max',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
@@ -481,22 +508,24 @@ class _TransactionHistoryPageState extends ConsumerState<TransactionHistoryPage>
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    Text(
-                      '·',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 10,
-                        color: LightPageColors.border,
+                    if ((t['ref'] as String).isNotEmpty) ...[
+                      Text(
+                        '·',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10,
+                          color: LightPageColors.border,
+                        ),
                       ),
-                    ),
-                    Text(
-                      t['ref'] as String,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: LightPageColors.text2,
+                      Text(
+                        t['ref'] as String,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: LightPageColors.indigo,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ],
@@ -590,7 +619,7 @@ class _TransactionHistoryPageState extends ConsumerState<TransactionHistoryPage>
           ),
           const SizedBox(height: 16),
           Text(
-            'Aucune transaction',
+            _day == 0 ? 'Rien aujourd’hui' : 'Rien hier',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 15,
               fontWeight: FontWeight.w800,
@@ -599,7 +628,7 @@ class _TransactionHistoryPageState extends ConsumerState<TransactionHistoryPage>
           ),
           const SizedBox(height: 4),
           Text(
-            'Aucune transaction trouvée dans cette catégorie',
+            'Seuls les mouvements du jour choisi s’affichent, 20 maximum.',
             textAlign: TextAlign.center,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 12,

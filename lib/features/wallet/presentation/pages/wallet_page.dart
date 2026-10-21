@@ -19,10 +19,21 @@ class WalletPage extends ConsumerStatefulWidget {
 }
 
 class _WalletPageState extends ConsumerState<WalletPage> {
+  bool _isToday(DateTime value) {
+    final local = value.toLocal();
+    final now = DateTime.now();
+    return local.year == now.year &&
+        local.month == now.month &&
+        local.day == now.day;
+  }
+
+  List<TransactionModel> get _todayTx {
+    final api = ref.watch(myTransactionsProvider).valueOrNull ?? const [];
+    return api.where((tx) => _isToday(tx.createdAt)).take(20).toList();
+  }
+
   List<Map<String, dynamic>> get _displayTx {
-    final api = ref.watch(myTransactionsProvider).valueOrNull;
-    if (api == null) return const [];
-    return api.map(_mapTx).toList();
+    return _todayTx.take(6).map(_mapTx).toList();
   }
 
   bool _isIncoming(TransactionModel tx) =>
@@ -31,8 +42,7 @@ class _WalletPageState extends ConsumerState<WalletPage> {
       tx.type == TransactionType.REFERRAL_BONUS;
 
   int _sumFor({required bool incoming}) {
-    final api = ref.watch(myTransactionsProvider).valueOrNull ?? const [];
-    return api
+    return _todayTx
         .where(
           (tx) =>
               tx.status == TransactionStatus.COMPLETED &&
@@ -55,7 +65,14 @@ class _WalletPageState extends ConsumerState<WalletPage> {
         TransactionType.WITHDRAWAL => 'Retrait',
         TransactionType.REFERRAL_BONUS => 'Bonus parrainage',
       },
-      'subtitle': tx.reference ?? tx.status.name,
+      'subtitle': RegExp(r'^[A-Z]-\d{2}$').hasMatch(tx.publicLabel)
+          ? 'Commande ${tx.publicLabel}'
+          : switch (tx.status) {
+              TransactionStatus.COMPLETED => 'Terminé',
+              TransactionStatus.PENDING => 'En attente',
+              TransactionStatus.FAILED => 'Échoué',
+              TransactionStatus.CANCELLED => 'Annulé',
+            },
       'amount': '${incoming ? '+' : '-'}${formatTickets(tx.amount)}',
       'unit': 'tickets',
       'time':
@@ -268,7 +285,7 @@ class _WalletPageState extends ConsumerState<WalletPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: KabaSectionHeader(
                   kicker: 'Mouvements',
-                  title: 'Dernières transactions',
+                  title: 'Aujourd’hui',
                   action: 'Voir tout',
                   onAction: () => context.push('/transaction-history'),
                 ),
@@ -281,7 +298,7 @@ class _WalletPageState extends ConsumerState<WalletPage> {
                   icon: Icons.receipt_long_outlined,
                   title: 'Aucun mouvement',
                   subtitle:
-                      'Tes recharges et paiements de commandes apparaîtront ici.',
+                      'Les mouvements d’aujourd’hui apparaissent ici. Hier est dans l’historique.',
                 ),
               )
             else

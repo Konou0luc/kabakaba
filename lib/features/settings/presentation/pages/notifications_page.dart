@@ -18,11 +18,26 @@ class NotificationsPage extends ConsumerStatefulWidget {
 
 class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   int _filter = 0;
+  int _day = 0;
   final _filters = const ['Tout', 'Commandes', 'Promos', 'Système'];
+  final _days = const ['Aujourd’hui', 'Hier'];
+
+  bool _sameDay(DateTime value, DateTime day) {
+    final local = value.toLocal();
+    return local.year == day.year &&
+        local.month == day.month &&
+        local.day == day.day;
+  }
 
   List<NotificationModel> _applyFilter(List<NotificationModel> items) {
-    if (_filter == 0) return items;
-    return items.where((item) {
+    final now = DateTime.now();
+    final target = _day == 0 ? now : now.subtract(const Duration(days: 1));
+    final dayItems = items
+        .where((item) => _sameDay(item.createdAt, target))
+        .take(20)
+        .toList();
+    if (_filter == 0) return dayItems;
+    return dayItems.where((item) {
       final title = item.title.toLowerCase();
       if (_filter == 1) {
         return title.contains('commande') || title.contains('prête');
@@ -75,7 +90,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     final async = ref.watch(myNotificationsProvider);
     final items = async.valueOrNull ?? const <NotificationModel>[];
     final filtered = _applyFilter(items);
-    final unreadCount = items.where((n) => !n.isRead).length;
+    final unreadCount = filtered.where((n) => !n.isRead).length;
 
     return LightPageScaffold(
       title: 'Notifications',
@@ -120,7 +135,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
             onRefresh: () => refreshStudentSession(ref),
             child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
             children: [
               Text(
                 unreadCount > 0
@@ -132,6 +147,12 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                 ),
               ),
               const SizedBox(height: 14),
+              LightTabs(
+                tabs: _days,
+                selectedIndex: _day,
+                onTap: (i) => setState(() => _day = i),
+              ),
+              const SizedBox(height: 12),
               SizedBox(
                 height: 36,
                 child: ListView.separated(
@@ -169,7 +190,9 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                 Padding(
                   padding: const EdgeInsets.only(top: 40),
                   child: Text(
-                    'Aucune notification ici.',
+                    _day == 0
+                        ? 'Rien aujourd’hui. Les plus anciennes ne s’affichent plus.'
+                        : 'Rien hier.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.plusJakartaSans(
                       color: LightPageColors.muted,
@@ -182,7 +205,16 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: LightCard(
-                      padding: const EdgeInsets.all(12),
+                      borderRadius: 22,
+                      border: const Border(),
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x121B2A6B),
+                          blurRadius: 18,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
                       onTap: () async {
                         if (item.isRead) return;
                         await ref

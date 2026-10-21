@@ -712,6 +712,13 @@ TransactionStatus transactionStatusFromJson(String value) =>
 
 String transactionStatusToJson(TransactionStatus status) => status.name;
 
+bool _opaqueId(String value) {
+  return RegExp(
+    r'^[0-9a-f]{8}-[0-9a-f]{4}-',
+    caseSensitive: false,
+  ).hasMatch(value.trim());
+}
+
 class TransactionModel {
   final String id;
   final DateTime createdAt;
@@ -722,6 +729,8 @@ class TransactionModel {
   final int amount;
   final TransactionStatus status;
   final String? reference;
+  final String? description;
+  final String? orderNumber;
   final String? counterpartyUserId;
   final String? orderId;
   final String? metadata;
@@ -736,10 +745,30 @@ class TransactionModel {
     required this.amount,
     required this.status,
     this.reference,
+    this.description,
+    this.orderNumber,
     this.counterpartyUserId,
     this.orderId,
     this.metadata,
   });
+
+  /// Libellé lisible. Jamais l’identifiant technique.
+  String get publicLabel {
+    final code = orderNumber?.trim();
+    if (code != null && code.isNotEmpty && !_opaqueId(code)) {
+      return code.toUpperCase();
+    }
+    final ref = reference?.trim();
+    if (ref != null && ref.isNotEmpty && !_opaqueId(ref)) return ref;
+    return switch (type) {
+      TransactionType.DEPOSIT => 'Recharge',
+      TransactionType.PAYMENT => 'Commande',
+      TransactionType.SALE => 'Vente',
+      TransactionType.REFUND => 'Remboursement',
+      TransactionType.WITHDRAWAL => 'Retrait',
+      TransactionType.REFERRAL_BONUS => 'Bonus',
+    };
+  }
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) =>
       TransactionModel(
@@ -752,6 +781,9 @@ class TransactionModel {
         amount: json.intOr('amount', 0),
         status: transactionStatusFromJson(json.stringOr('status', 'PENDING')),
         reference: json.optionalString('reference'),
+        description: json.optionalString('description'),
+        orderNumber: json.optionalString('orderNumber') ??
+            json.nested('relatedOrder')?.optionalString('orderNumber'),
         counterpartyUserId: json.optionalString('counterpartyUserId'),
         orderId: json.optionalString('orderId'),
         metadata: json.optionalString('metadata'),
@@ -767,6 +799,8 @@ class TransactionModel {
         'amount': amount,
         'status': transactionStatusToJson(status),
         if (reference != null) 'reference': reference,
+        if (description != null) 'description': description,
+        if (orderNumber != null) 'orderNumber': orderNumber,
         if (counterpartyUserId != null)
           'counterpartyUserId': counterpartyUserId,
         if (orderId != null) 'orderId': orderId,

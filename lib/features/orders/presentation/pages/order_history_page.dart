@@ -26,7 +26,9 @@ class OrderHistoryPage extends ConsumerStatefulWidget {
 
 class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
   int _tab = 0;
+  int _day = 0;
   final List<String> tabs = const ['Confirmées', 'En cours', 'Historique'];
+  final List<String> days = const ['Aujourd’hui', 'Hier'];
   Timer? _poll;
 
   @override
@@ -126,6 +128,7 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
       'color': color,
       'badge': badge,
       'date': _formatWhen(order.createdAt),
+      'createdAt': order.createdAt,
       'progress': progress,
       'steps': ['Confirmée', 'En préparation', 'Prête', 'Retirée'],
     };
@@ -138,18 +141,30 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
     return '${local.day}/${local.month} · ${hh}h$mm';
   }
 
+  bool _sameDay(DateTime value, DateTime day) {
+    final local = value.toLocal();
+    return local.year == day.year &&
+        local.month == day.month &&
+        local.day == day.day;
+  }
+
   List<Map<String, dynamic>> get currentData {
     final orders = ref.watch(myOrdersProvider).valueOrNull ?? const [];
     final cards = orders.map(_cardOf).toList();
     return switch (_tab) {
       0 => cards.where((o) => o['status'] == 'pending').toList(),
       1 => cards.where((o) => o['status'] == 'prepping').toList(),
-      _ =>
-        cards
+      _ => () {
+        final now = DateTime.now();
+        final target = _day == 0 ? now : now.subtract(const Duration(days: 1));
+        return cards
             .where(
               (o) => o['status'] == 'history' || o['status'] == 'cancelled',
             )
-            .toList(),
+            .where((o) => _sameDay(o['createdAt'] as DateTime, target))
+            .take(20)
+            .toList();
+      }(),
     };
   }
 
@@ -178,10 +193,22 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                      child: LightTabs(
-                        tabs: tabs,
-                        selectedIndex: _tab,
-                        onTap: (i) => setState(() => _tab = i),
+                      child: Column(
+                        children: [
+                          LightTabs(
+                            tabs: tabs,
+                            selectedIndex: _tab,
+                            onTap: (i) => setState(() => _tab = i),
+                          ),
+                          if (_tab == 2) ...[
+                            const SizedBox(height: 10),
+                            LightTabs(
+                              tabs: days,
+                              selectedIndex: _day,
+                              onTap: (i) => setState(() => _day = i),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     Expanded(child: _buildOrdersList()),
@@ -554,12 +581,12 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
       title: switch (_tab) {
         0 => 'Aucune commande confirmée',
         1 => 'Rien en préparation',
-        _ => 'Aucune commande passée',
+        _ => _day == 0 ? 'Rien aujourd’hui' : 'Rien hier',
       },
       subtitle: switch (_tab) {
         0 => 'Tes commandes confirmées apparaîtront ici.',
         1 => 'Tes commandes en cours apparaîtront ici.',
-        _ => 'Ton historique de commandes apparaîtra ici.',
+        _ => 'Seules les commandes du jour choisi restent visibles.',
       },
       actionLabel: 'Découvrir les cantines',
       onAction: () => context.go('/canteen-list'),
