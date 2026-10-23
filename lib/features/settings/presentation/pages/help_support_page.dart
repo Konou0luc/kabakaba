@@ -11,9 +11,28 @@ import '../../../../core/utils/api_error.dart';
 import '../../../../core/utils/kaba_snack.dart';
 import '../../../../shared/widgets/kaba_card.dart';
 import '../../../../shared/widgets/kaba_input.dart';
-import '../../../../shared/widgets/kaba_bottom_sheet_modal.dart';
+import '../../../../shared/models/api_models.dart';
 import '../../../../shared/widgets/kaba_premium.dart';
 import '../../../../shared/widgets/light_page_scaffold.dart';
+
+Future<void> showReportIssueSheet(
+  BuildContext context, {
+  String? orderId,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Material(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: _ReportIssueForm(initialOrderId: orderId),
+      ),
+    ),
+  );
+}
 
 class HelpSupportPage extends StatefulWidget {
   const HelpSupportPage({super.key});
@@ -35,12 +54,12 @@ class _HelpSupportPageState extends State<HelpSupportPage>
         {
           'title': 'Que se passe-t-il si le vendeur ne répond pas ?',
           'content':
-              '''Si le vendeur ne répond pas dans les 5 minutes suivant ta commande, elle est automatiquement annulée et tes tickets sont recrédités immédiatement sur ton portefeuille. Tu peux alors recommander ailleurs.''',
+              '''Dès que tu confirmes, la cantine reçoit la commande. Tu peux l’annuler tant qu’elle n’est pas encore en préparation : tes tickets sont alors remboursés.''',
         },
         {
           'title': 'Comment annuler une commande ?',
           'content':
-              '''Tu peux annuler librement tant que le vendeur n'a pas accepté ta commande. Une fois accepté, l'annulation n'est plus possible. Côté étudiant : si besoin, voire un litige depuis la section Litiges & remboursements.''',
+              '''Tu peux annuler une commande Confirmée, avec un motif. Dès qu’elle passe « En préparation », l’annulation n’est plus possible côté étudiant. Un problème sur un plat déjà prêt se signale depuis l’historique.''',
         },
         {
           'title': 'Combien de temps ai-je pour confirmer la réception ?',
@@ -148,12 +167,7 @@ class _HelpSupportPageState extends State<HelpSupportPage>
   }
 
   void _openReportIssueSheet() {
-    KabaBottomSheetModal.show(
-      context: context,
-      title: 'Signaler un problème',
-      // Pas de hauteur fixe pour que le clavier ne cache pas le champ
-      child: const _ReportIssueForm(),
-    );
+    showReportIssueSheet(context);
   }
 
   @override
@@ -434,144 +448,7 @@ class _HelpSupportPageState extends State<HelpSupportPage>
                         const SizedBox(height: 24),
                         const _SectionTitle(title: 'MES RÉCLAMATIONS'),
                         const SizedBox(height: 12),
-                        KabaCard(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  width: 50,
-                                  height: 50,
-                                  color: AppColors.greyLight,
-                                  child: const Icon(
-                                    Icons.fastfood_rounded,
-                                    color: AppColors.grey,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Brochettes + riz',
-                                      style: AppTextStyles.bodyLarge,
-                                    ),
-                                    Text(
-                                      'Maquis du Savoir • 21 juin',
-                                      style: AppTextStyles.bodySmall.copyWith(
-                                        color: AppColors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.success.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  'Remboursée',
-                                  style: AppTextStyles.caption.copyWith(
-                                    color: AppColors.success,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.1),
-                        const SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 16),
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 8),
-                              KabaCard(
-                                padding: const EdgeInsets.all(16),
-                                color:
-                                    Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? AppColors.success.withValues(alpha: 0.1)
-                                    : AppColors.success.withValues(alpha: 0.05),
-                                child: Text(
-                                  '''Motif: Erreur de préparation\nMontant concerné: 700 tickets\n\nRéponse de l'équipe: Vérifié auprès du vendeur, remboursement intégral effectué le 21 juin à 14:20.''',
-                                  style: AppTextStyles.bodyMedium.copyWith(
-                                    color: AppColors.greyDark,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        KabaCard(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  width: 50,
-                                  height: 50,
-                                  color: AppColors.greyLight,
-                                  child: const Icon(
-                                    Icons.coffee_rounded,
-                                    color: AppColors.grey,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Café + croissant',
-                                      style: AppTextStyles.bodyLarge,
-                                    ),
-                                    Text(
-                                      'Café des Étudiants • 23 juin',
-                                      style: AppTextStyles.bodySmall.copyWith(
-                                        color: AppColors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: AppColors.grey.withValues(
-                                      alpha: 0.5,
-                                    ),
-                                  ),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  'En cours d\'examen',
-                                  style: AppTextStyles.caption.copyWith(
-                                    color: AppColors.grey,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.1),
+                        const _MyReportsList(),
                       ],
                     ),
                   ],
@@ -583,8 +460,93 @@ class _HelpSupportPageState extends State<HelpSupportPage>
   }
 }
 
+class _MyReportsList extends ConsumerWidget {
+  const _MyReportsList();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder(
+      future: ref.read(reportRepositoryProvider).findMyReports(limit: 20),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          return Text(
+            apiErrorMessage(snapshot.error!),
+            style: AppTextStyles.bodySmall.copyWith(color: AppColors.grey),
+          );
+        }
+        final reports = snapshot.data?.data ?? const <ReportModel>[];
+        if (reports.isEmpty) {
+          return Text(
+            'Aucun signalement pour l’instant.',
+            style: AppTextStyles.bodySmall.copyWith(color: AppColors.grey),
+          );
+        }
+        final orders = ref.watch(myOrdersProvider).valueOrNull ?? const [];
+        return Column(
+          children: [
+            for (final report in reports)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: KabaCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              () {
+                                for (final order in orders) {
+                                  if (order.id == report.orderId) {
+                                    return order.displayCode;
+                                  }
+                                }
+                                return 'Commande';
+                              }(),
+                              style: AppTextStyles.bodyLarge,
+                            ),
+                            Text(
+                              report.comment?.isNotEmpty == true
+                                  ? report.comment!
+                                  : report.type.name,
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: AppColors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        switch (report.status) {
+                          ReportStatus.OPEN => 'Ouvert',
+                          ReportStatus.IN_PROGRESS => 'En cours',
+                          ReportStatus.RESOLVED => 'Traité',
+                        },
+                        style: AppTextStyles.caption.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _ReportIssueForm extends ConsumerStatefulWidget {
-  const _ReportIssueForm();
+  final String? initialOrderId;
+  const _ReportIssueForm({this.initialOrderId});
 
   @override
   ConsumerState<_ReportIssueForm> createState() => _ReportIssueFormState();
@@ -594,6 +556,12 @@ class _ReportIssueFormState extends ConsumerState<_ReportIssueForm> {
   final TextEditingController _descriptionController = TextEditingController();
   String? _selectedIssue;
   String? _selectedOrder;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedOrder = widget.initialOrderId;
+  }
 
   /// Valeurs API ReportType.
   static const List<(String label, String type)> _issueTypes = [
@@ -652,7 +620,7 @@ class _ReportIssueFormState extends ConsumerState<_ReportIssueForm> {
               items: (ref.watch(myOrdersProvider).valueOrNull ?? const [])
                   .map((order) {
                     final label =
-                        '${order.vendorName} · ${order.totalTickets} tickets';
+                        '${order.displayCode} · ${order.vendorName}';
                     return DropdownMenuItem(
                       value: order.id,
                       child: Text(label, style: AppTextStyles.bodyMedium),

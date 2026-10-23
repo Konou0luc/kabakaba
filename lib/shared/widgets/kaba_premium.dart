@@ -286,6 +286,7 @@ class KabaCanteenPoster extends StatelessWidget {
   Widget build(BuildContext context) {
     final image = vendor.bannerUrl ?? vendor.logoUrl;
     final open = vendor.isOpen;
+    final capacity = vendor.capacityLabel;
     final desc = vendor.description?.trim();
 
     return GestureDetector(
@@ -341,11 +342,13 @@ class KabaCanteenPoster extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: open
                         ? AppColors.success.withValues(alpha: 0.92)
-                        : Colors.black.withValues(alpha: 0.55),
+                        : vendor.capacityStatus == VendorCapacity.BUSY
+                            ? AppColors.warning.withValues(alpha: 0.92)
+                            : Colors.black.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(99),
                   ),
                   child: Text(
-                    open ? 'Ouverte' : 'Fermée',
+                    capacity,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,

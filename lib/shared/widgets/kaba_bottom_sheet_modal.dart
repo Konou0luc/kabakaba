@@ -72,6 +72,14 @@ class KabaBottomSheetModal extends StatelessWidget {
     return confirmed == true;
   }
 
+  static Future<String?> askCancelReason(BuildContext context) {
+    return show<String>(
+      context: context,
+      title: 'Annuler la commande',
+      child: const _CancelReasonBody(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode =
@@ -280,6 +288,68 @@ class _ClearCartConfirmBody extends StatelessWidget {
             text: 'Annuler',
             isPrimary: false,
             onPressed: () => Navigator.of(context).pop(false),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CancelReasonBody extends StatefulWidget {
+  const _CancelReasonBody();
+
+  @override
+  State<_CancelReasonBody> createState() => _CancelReasonBodyState();
+}
+
+class _CancelReasonBodyState extends State<_CancelReasonBody> {
+  static const _reasons = [
+    'Je me suis trompé',
+    'Je ne pourrai pas récupérer',
+    'Changement d’avis',
+    'Autre',
+  ];
+  String? _selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Pourquoi annuler ? Les tickets sont remboursés tant que la commande n’est pas en préparation.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: LightPageColors.muted,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          for (final reason in _reasons)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: LightButton(
+                text: reason,
+                isPrimary: _selected == reason,
+                onPressed: () => setState(() => _selected = reason),
+              ),
+            ),
+          const SizedBox(height: 8),
+          LightButton(
+            text: 'Confirmer l’annulation',
+            isDanger: true,
+            isPrimary: false,
+            onPressed: _selected == null
+                ? null
+                : () => Navigator.of(context).pop(_selected),
+          ),
+          const SizedBox(height: 10),
+          LightButton(
+            text: 'Retour',
+            isPrimary: false,
+            onPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),

@@ -275,7 +275,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             LightToggleRow(
               icon: Icons.receipt_long_outlined,
               title: 'Mes commandes',
-              subtitle: 'Acceptation, refus, prête',
+              subtitle: 'Confirmée, en préparation, prête',
               value: user?.notifyOrders ?? true,
               onChanged: (v) => _setNotify(orders: v),
             ),
@@ -294,6 +294,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   Widget _buildAmbassadorCard() {
     final referral = ref.watch(myReferralProvider).valueOrNull;
+    final user = ref.watch(meProvider).valueOrNull;
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -320,7 +321,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  referral?.referralCode ?? 'PARRAINAGE',
+                  (referral?.referralCode.isNotEmpty == true
+                      ? referral!.referralCode
+                      : (user?.referralCode ?? 'PARRAINAGE')),
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,

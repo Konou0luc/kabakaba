@@ -13,8 +13,10 @@ import '../../../../core/utils/kaba_snack.dart';
 import '../../../../core/utils/ticket_format.dart';
 import '../../../../features/cart/data/cart_provider.dart';
 import '../../../../shared/models/api_models.dart';
+import '../../../../shared/widgets/kaba_bottom_sheet_modal.dart';
 import '../../../../shared/widgets/kaba_premium.dart';
 import '../../../../shared/widgets/light_page_scaffold.dart';
+import '../../../settings/presentation/pages/help_support_page.dart';
 import '../../../../shared/widgets/remote_photo.dart';
 
 class OrderDetailPage extends ConsumerStatefulWidget {
@@ -58,7 +60,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         OrderStatus.CONFIRMED => 'Confirmée',
         OrderStatus.IN_PREPARATION => 'En préparation',
         OrderStatus.READY => 'Prête à retirer',
-        OrderStatus.RECEIVED => 'Retirée',
+        OrderStatus.RECEIVED => 'Récupérée',
         OrderStatus.CANCELLED => 'Annulée',
       };
 
@@ -126,7 +128,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   Widget _body(OrderModel order) {
     final color = _statusColor(order.status);
     final step = _progress(order.status);
-    const steps = ['Envoyée', 'Préparation', 'Prête', 'Retirée'];
+    const steps = ['Confirmée', 'En préparation', 'Prête', 'Récupérée'];
     final failed = step == 0;
 
     return ListView(
@@ -357,6 +359,15 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               const SizedBox(height: 8),
             ],
             LightButton(
+              text: 'Signaler un problème',
+              isPrimary: false,
+              icon: Icons.flag_outlined,
+              onPressed: _busy
+                  ? null
+                  : () => showReportIssueSheet(context, orderId: order.id),
+            ),
+            const SizedBox(height: 8),
+            LightButton(
               text: 'Recommander',
               isPrimary: false,
               icon: Icons.replay_rounded,
@@ -369,9 +380,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   }
 
   Future<void> _cancel(String id) async {
+    final reason = await KabaBottomSheetModal.askCancelReason(context);
+    if (reason == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      await ref.read(orderRepositoryProvider).cancelOrder(id);
+      await ref.read(orderRepositoryProvider).cancelOrder(id, reason: reason);
       ref.invalidate(myOrdersProvider);
       ref.invalidate(orderDetailProvider(id));
       ref.invalidate(meProvider);

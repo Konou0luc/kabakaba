@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/network/repositories.dart';
@@ -216,11 +217,30 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                         ),
                       ],
                       onTap: () async {
-                        if (item.isRead) return;
-                        await ref
-                            .read(notificationRepositoryProvider)
-                            .updateNotification(id: item.id, isRead: true);
-                        ref.invalidate(myNotificationsProvider);
+                        if (!item.isRead) {
+                          await ref
+                              .read(notificationRepositoryProvider)
+                              .updateNotification(id: item.id, isRead: true);
+                          ref.invalidate(myNotificationsProvider);
+                        }
+                        if (!context.mounted) return;
+                        final related = item.relatedType?.toLowerCase();
+                        final id = item.relatedId;
+                        if (id != null &&
+                            (related == 'order' || related == 'commande')) {
+                          context.push('/order-detail', extra: id);
+                          return;
+                        }
+                        final title = item.title.toLowerCase();
+                        if (title.contains('programm') ||
+                            title.contains('repas')) {
+                          context.push('/cart');
+                          return;
+                        }
+                        if (title.contains('rembours') ||
+                            title.contains('recharge')) {
+                          context.push('/transaction-history');
+                        }
                       },
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,

@@ -21,10 +21,20 @@ final meProvider = FutureProvider<UserModel?>((ref) async {
 });
 
 final vendorsListProvider = FutureProvider<List<VendorModel>>((ref) async {
+  final campusId = ref.watch(meProvider).valueOrNull?.campusId;
   final page = await ref
       .read(vendorRepositoryProvider)
-      .findAllVendors(limit: 50);
+      .findAllVendors(limit: 50, campusId: campusId);
   return page.data.where((vendor) => vendor.isActive).toList();
+});
+
+final myScheduledOrdersProvider =
+    FutureProvider<List<ScheduledOrderModel>>((ref) async {
+  ref.watch(authProvider);
+  final page = await ref
+      .read(scheduledOrderRepositoryProvider)
+      .findAll(limit: 50, status: 'PENDING');
+  return page.data;
 });
 
 final vendorDetailProvider = FutureProvider.family<VendorModel, String>((
@@ -144,6 +154,7 @@ Future<void> refreshStudentSession(WidgetRef ref) async {
     ref.invalidate(vendorsListProvider);
     await ref.read(vendorsListProvider.future);
     ref.invalidate(myReferralProvider);
+    ref.invalidate(myScheduledOrdersProvider);
   } finally {
     _sessionRefreshBusy = false;
   }

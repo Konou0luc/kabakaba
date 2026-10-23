@@ -393,6 +393,7 @@ class ComponentModel {
   final String unit;
   final int priceTickets;
   final bool available;
+  final bool soldAlone;
 
   ComponentModel({
     required this.id,
@@ -401,6 +402,7 @@ class ComponentModel {
     required this.unit,
     required this.priceTickets,
     required this.available,
+    this.soldAlone = false,
   });
 
   factory ComponentModel.fromJson(Map<String, dynamic> json) => ComponentModel(
@@ -410,6 +412,7 @@ class ComponentModel {
         unit: json.stringOr('unit', 'PORTION'),
         priceTickets: json.intOr('priceTickets', 0),
         available: json.boolOr('available', true),
+        soldAlone: json.boolOr('soldAlone', false),
       );
 }
 

@@ -25,7 +25,7 @@ String apiErrorMessage(Object error) {
       }
     }
     if (error.response?.statusCode == 401) {
-      return 'Session expirée. Reconnecte-toi.';
+      return 'Connexion interrompue. Réessaie.';
     }
     if (error.response?.statusCode == 503) {
       return 'Service temporairement indisponible. Réessaie dans un instant.';

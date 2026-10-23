@@ -12,10 +12,15 @@ class VendorRepository {
   Future<PaginatedResponse<VendorModel>> findAllVendors({
     int page = 1,
     int limit = 10,
+    String? campusId,
   }) async {
     final response = await _apiClient.get(
       ApiEndpoints.vendors,
-      queryParameters: {'page': page, 'limit': limit},
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        if (campusId != null && campusId.isNotEmpty) 'campusId': campusId,
+      },
     );
     return PaginatedResponse<VendorModel>.fromJson(
       unwrapPage(response.data),

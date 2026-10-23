@@ -181,6 +181,12 @@ class ApiClient {
         if (current != null && current != refreshToken) {
           return true;
         }
+        // Refresh encore valide : coupure / course, pas une vraie expiration.
+        // On ne jette pas la session — sinon quitter l'app = « session expirée ».
+        final refreshJwt = JwtPayload.tryParse(refreshToken);
+        if (refreshJwt != null && !refreshJwt.isExpired()) {
+          return false;
+        }
         await _tokenStorage.clearTokens();
         kabaOnSessionInvalid?.call();
       }

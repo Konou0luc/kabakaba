@@ -18,6 +18,7 @@ class CartLine {
   final int quantity;
   final String? imageUrl;
   final String? unit;
+  final bool soldAlone;
 
   const CartLine({
     required this.vendorId,
@@ -29,6 +30,7 @@ class CartLine {
     required this.quantity,
     this.imageUrl,
     this.unit,
+    this.soldAlone = false,
   });
 
   String get lineKey => menuId != null ? 'm:$menuId' : 'c:$componentId';
@@ -49,6 +51,7 @@ class CartLine {
         quantity: quantity ?? this.quantity,
         imageUrl: imageUrl,
         unit: unit,
+        soldAlone: soldAlone,
       );
 
   Map<String, dynamic> toOrderJson() => {
@@ -67,6 +70,7 @@ class CartLine {
         'quantity': quantity,
         'imageUrl': imageUrl,
         'unit': unit,
+        'soldAlone': soldAlone,
       };
 
   factory CartLine.fromJson(Map<String, dynamic> json) => CartLine(
@@ -80,7 +84,22 @@ class CartLine {
         quantity: (json['quantity'] as num?)?.toInt() ?? 1,
         imageUrl: json['imageUrl'] as String?,
         unit: json['unit'] as String?,
+        soldAlone: json['soldAlone'] == true,
       );
+}
+
+/// Un accompagnement ne peut pas être le seul article à la carte.
+String? cartSoldAloneViolation(List<CartLine> lines) {
+  if (lines.any((line) => line.isMenu)) return null;
+  final components = [
+    for (final line in lines)
+      if (line.componentId != null && line.componentId!.isNotEmpty) line,
+  ];
+  final ids = {for (final line in components) line.componentId!};
+  if (ids.length != 1) return null;
+  final line = components.first;
+  if (line.soldAlone) return null;
+  return '${line.name} ne se vend pas tout seul. Ajoute-le à un plat.';
 }
 
 class CartState {

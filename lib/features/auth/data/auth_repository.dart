@@ -48,6 +48,7 @@ class AuthRepository {
       refreshToken: authResponse.refreshToken,
       userId: authResponse.user.id,
     );
+    await _tokenStorage.markAuthenticated();
 
     return authResponse;
   }
@@ -72,6 +73,7 @@ class AuthRepository {
       refreshToken: authResponse.refreshToken,
       userId: authResponse.user.id,
     );
+    await _tokenStorage.markAuthenticated();
 
     return authResponse;
   }
@@ -105,7 +107,7 @@ class AuthRepository {
   }
 
   bool isAuthenticated() {
-    if (!_tokenStorage.hasTokens()) return false;
+    if (!_tokenStorage.isSessionFresh()) return false;
     final jwt = JwtPayload.tryParse(_tokenStorage.getAccessToken());
     if (jwt != null && !jwt.isStudent) return false;
     return true;
@@ -113,6 +115,11 @@ class AuthRepository {
 
   Future<void> discardNonStudentSession() async {
     if (!_tokenStorage.hasTokens()) return;
+    if (!_tokenStorage.isSessionFresh()) {
+      await _tokenStorage.clearTokens();
+      return;
+    }
+    await _tokenStorage.ensureAuthenticatedStamp();
     final jwt = JwtPayload.tryParse(_tokenStorage.getAccessToken());
     if (jwt != null && !jwt.isStudent) {
       await _tokenStorage.clearTokens();

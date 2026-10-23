@@ -165,6 +165,39 @@ class PushNotifications {
     return kind.startsWith('ORDER_') || kind == 'NEW_ORDER';
   }
 
+  /// Alerte locale (barre de notif) : l’étudiant voit l’erreur même s’il
+  /// quitte l’écran. Ne remplace pas le bandeau in-app.
+  Future<void> showUserAlert({
+    required String title,
+    required String body,
+  }) async {
+    if (kIsWeb) return;
+    try {
+      if (!_started) await start();
+      if (!_started) return;
+      await _plugin.show(
+        id: DateTime.now().millisecondsSinceEpoch.remainder(1 << 31),
+        title: title,
+        body: body,
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            defaultChannel.id,
+            defaultChannel.name,
+            channelDescription: defaultChannel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/launcher_icon',
+            playSound: true,
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentSound: true,
+          ),
+        ),
+      );
+    } catch (_) {}
+  }
+
   Future<void> _showForeground(RemoteMessage message) async {
     final notification = message.notification;
     final title = notification?.title ?? message.data['title'];

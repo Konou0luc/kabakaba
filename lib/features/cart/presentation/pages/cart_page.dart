@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/network/repositories.dart';
 import '../../../../core/network/session_providers.dart';
+import '../../../../core/push/push_notifications.dart';
 import '../../../../core/utils/api_error.dart';
 import '../../../../core/utils/ticket_format.dart';
 import '../../../../core/utils/kaba_snack.dart';
@@ -25,6 +28,8 @@ class CartPage extends ConsumerStatefulWidget {
 
 class _CartPageState extends ConsumerState<CartPage> {
   bool _paying = false;
+  bool _schedule = false;
+  DateTime? _scheduledFor;
 
   List<CartLine> get _items => ref.watch(cartProvider).lines;
 
@@ -53,10 +58,78 @@ class _CartPageState extends ConsumerState<CartPage> {
     showKabaSnack(context, 'Panier vidé');
   }
 
+  VendorModel? _cartVendor() {
+    final vendorId = ref.read(cartProvider).vendorId;
+    final vendors = ref.read(vendorsListProvider).valueOrNull ?? const [];
+    for (final vendor in vendors) {
+      if (vendor.id == vendorId) return vendor;
+    }
+    return null;
+  }
+
+  Future<void> _pickScheduleTime() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 1)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(minutes: 20))),
+    );
+    if (time == null || !mounted) return;
+    setState(() {
+      _scheduledFor = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    });
+  }
+
+  void _signalSoldAloneError(String message) {
+    showKabaSnack(context, message, error: true);
+    unawaited(
+      ref.read(pushNotificationsProvider).showUserAlert(
+            title: 'Commande impossible',
+            body: message,
+          ),
+    );
+  }
+
   Future<void> _checkout() async {
     final cart = ref.read(cartProvider);
     if (cart.isEmpty || cart.vendorId == null) return;
-    if (!_hasEnough) {
+    final soldAloneError = cartSoldAloneViolation(cart.lines);
+    if (soldAloneError != null) {
+      _signalSoldAloneError(soldAloneError);
+      return;
+    }
+    final vendor = _cartVendor();
+    if (!_schedule && vendor != null && !vendor.acceptsOrders) {
+      showKabaSnack(
+        context,
+        vendor.capacityStatus == VendorCapacity.BUSY
+            ? 'Cantine occupée — programme plutôt ton repas.'
+            : 'Cette cantine n’accepte plus de commandes.',
+        error: true,
+      );
+      return;
+    }
+    if (vendor != null && vendor.capacityStatus == VendorCapacity.CLOSED) {
+      showKabaSnack(
+        context,
+        'Cette cantine est fermée.',
+        error: true,
+      );
+      return;
+    }
+    if (!_schedule && !_hasEnough) {
       context.push('/recharge/step1');
       return;
     }
@@ -69,11 +142,48 @@ class _CartPageState extends ConsumerState<CartPage> {
       );
       return;
     }
+    if (_schedule) {
+      final when = _scheduledFor;
+      if (when == null) {
+        showKabaSnack(context, 'Choisis une heure', error: true);
+        return;
+      }
+      final lead = when.difference(DateTime.now());
+      if (lead.inMinutes < 15 || lead.inHours > 24) {
+        showKabaSnack(
+          context,
+          'L’heure doit être entre 15 minutes et 24 heures',
+          error: true,
+        );
+        return;
+      }
+    }
     setState(() => _paying = true);
     try {
+      final items = [for (final line in cart.lines) line.toOrderJson()];
+      if (_schedule) {
+        await ref.read(scheduledOrderRepositoryProvider).create(
+              vendorId: cart.vendorId!,
+              scheduledFor: _scheduledFor!.toUtc().toIso8601String(),
+              items: items,
+              consumptionMode: cart.consumptionMode.name,
+              takeawayOptionId: cart.consumptionMode == ConsumptionMode.TAKEAWAY
+                  ? cart.takeawayOptionId
+                  : null,
+            );
+        ref.read(cartProvider.notifier).clear();
+        ref.invalidate(myScheduledOrdersProvider);
+        if (!mounted) return;
+        showKabaSnack(
+          context,
+          'Commande programmée. Les tickets seront débités à l’heure prévue.',
+        );
+        context.push('/order-history');
+        return;
+      }
       await ref.read(orderRepositoryProvider).createOrder(
             vendorId: cart.vendorId!,
-            items: [for (final line in cart.lines) line.toOrderJson()],
+            items: items,
             consumptionMode: cart.consumptionMode.name,
             takeawayOptionId: cart.consumptionMode == ConsumptionMode.TAKEAWAY
                 ? cart.takeawayOptionId
@@ -128,6 +238,13 @@ class _CartPageState extends ConsumerState<CartPage> {
                     child: Column(
                       children: [
                         _buildCanteenHeader(),
+                        if (cartSoldAloneViolation(_items) != null) ...[
+                          const SizedBox(height: 12),
+                          LightHintBox(
+                            icon: Icons.error_outline_rounded,
+                            text: cartSoldAloneViolation(_items)!,
+                          ),
+                        ],
                         const SizedBox(height: 14),
                         ...List.generate(_items.length, (i) {
                           return Padding(
@@ -142,6 +259,8 @@ class _CartPageState extends ConsumerState<CartPage> {
                         }),
                         const SizedBox(height: 16),
                         _buildConsumptionMode(),
+                        const SizedBox(height: 16),
+                        _buildSchedule(),
                         const SizedBox(height: 16),
                         _buildSummary(),
                       ],
@@ -289,7 +408,7 @@ class _CartPageState extends ConsumerState<CartPage> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${formatTickets(item.priceTickets)} tickets',
+                  '${formatTickets(item.priceTickets)} tickets / u. · ${formatTickets(item.lineTotal)} tickets',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -534,6 +653,68 @@ class _CartPageState extends ConsumerState<CartPage> {
     );
   }
 
+  Widget _buildSchedule() {
+    final when = _scheduledFor;
+    final label = when == null
+        ? 'Choisir l’heure'
+        : '${when.day.toString().padLeft(2, '0')}/${when.month.toString().padLeft(2, '0')} · ${when.hour.toString().padLeft(2, '0')}h${when.minute.toString().padLeft(2, '0')}';
+    return LightCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Quand commander ?',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              color: LightPageColors.text,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _modeChip(
+                  label: 'Maintenant',
+                  icon: Icons.flash_on_rounded,
+                  selected: !_schedule,
+                  onTap: () => setState(() => _schedule = false),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _modeChip(
+                  label: 'Programmer',
+                  icon: Icons.schedule_rounded,
+                  selected: _schedule,
+                  onTap: () => setState(() => _schedule = true),
+                ),
+              ),
+            ],
+          ),
+          if (_schedule) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Le stock et les tickets ne sont vérifiés qu’à l’heure prévue.',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11.5,
+                color: LightPageColors.muted,
+              ),
+            ),
+            const SizedBox(height: 10),
+            LightButton(
+              text: label,
+              icon: Icons.access_time_rounded,
+              isPrimary: false,
+              onPressed: _pickScheduleTime,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildSummary() {
     final cart = ref.watch(cartProvider);
     return LightCard(
@@ -575,6 +756,13 @@ class _CartPageState extends ConsumerState<CartPage> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          _summaryRow('Solde actuel', '${formatTickets(_availableTickets)} tickets'),
+          const SizedBox(height: 8),
+          _summaryRow(
+            _schedule ? 'Sera débité à l’heure prévue' : 'Il te restera',
+            '${formatTickets((_availableTickets - _totalPrice).clamp(0, 1 << 30))} tickets',
           ),
         ],
       ),
@@ -666,17 +854,21 @@ class _CartPageState extends ConsumerState<CartPage> {
             LightButton(
               text: _paying
                   ? 'Confirmation…'
+                  : _schedule
+                      ? 'Programmer la commande'
+                      : _hasEnough
+                          ? 'Confirmer la commande'
+                          : 'Solde insuffisant — Recharger',
+              icon: _schedule
+                  ? Icons.schedule_rounded
                   : _hasEnough
-                      ? 'Confirmer la commande'
-                      : 'Solde insuffisant — Recharger',
-              icon: _hasEnough
-                  ? Icons.check_rounded
-                  : Icons.add_circle_outline_rounded,
-              isPrimary: _hasEnough,
+                      ? Icons.check_rounded
+                      : Icons.add_circle_outline_rounded,
+              isPrimary: _schedule || _hasEnough,
               isLoading: _paying,
               onPressed: _paying
                   ? null
-                  : _hasEnough
+                  : (_schedule || _hasEnough)
                       ? _checkout
                       : () => context.push('/recharge/step1'),
             ),

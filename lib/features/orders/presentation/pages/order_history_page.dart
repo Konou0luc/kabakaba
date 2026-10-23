@@ -13,8 +13,10 @@ import '../../../../shared/models/api_models.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/ticket_format.dart';
+import '../../../../shared/widgets/kaba_bottom_sheet_modal.dart';
 import '../../../../shared/widgets/kaba_premium.dart';
 import '../../../../shared/widgets/light_page_scaffold.dart';
+import '../../../settings/presentation/pages/help_support_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class OrderHistoryPage extends ConsumerStatefulWidget {
@@ -46,11 +48,25 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
   }
 
   Future<void> _cancelOrder(String id) async {
+    final reason = await KabaBottomSheetModal.askCancelReason(context);
+    if (reason == null || !mounted) return;
     try {
-      await ref.read(orderRepositoryProvider).cancelOrder(id);
+      await ref.read(orderRepositoryProvider).cancelOrder(id, reason: reason);
       ref.invalidate(myOrdersProvider);
       ref.invalidate(meProvider);
-      if (mounted) showKabaSnack(context, 'Commande annulée — tickets remboursés');
+      if (mounted) {
+        showKabaSnack(context, 'Commande annulée — tickets remboursés');
+      }
+    } catch (error) {
+      if (mounted) showKabaSnack(context, apiErrorMessage(error), error: true);
+    }
+  }
+
+  Future<void> _cancelScheduled(String id) async {
+    try {
+      await ref.read(scheduledOrderRepositoryProvider).cancel(id);
+      ref.invalidate(myScheduledOrdersProvider);
+      if (mounted) showKabaSnack(context, 'Commande programmée annulée');
     } catch (error) {
       if (mounted) showKabaSnack(context, apiErrorMessage(error), error: true);
     }
@@ -130,7 +146,38 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
       'date': _formatWhen(order.createdAt),
       'createdAt': order.createdAt,
       'progress': progress,
-      'steps': ['Confirmée', 'En préparation', 'Prête', 'Retirée'],
+      'steps': ['Confirmée', 'En préparation', 'Prête', 'Récupérée'],
+      'refunded': order.refundedTickets,
+    };
+  }
+
+  Map<String, dynamic> _scheduledCardOf(ScheduledOrderModel order) {
+    return {
+      'id': order.id,
+      'scheduled': order,
+      'vendor': order.vendorName,
+      'vendorId': order.vendorId,
+      'items': order.items
+          .map((item) => '${item['quantity'] ?? 1}× ${item['name'] ?? 'Article'}')
+          .join(' · '),
+      'total': 0,
+      'count': order.items.length,
+      'time': _formatWhen(order.scheduledFor),
+      'eta': _formatWhen(order.scheduledFor),
+      'code': 'Programmée',
+      'pickup': order.consumptionMode == ConsumptionMode.TAKEAWAY
+          ? 'À emporter'
+          : 'Sur place',
+      'status': 'scheduled',
+      'ready': false,
+      'canCancel': true,
+      'color': const Color(0xFF6366F1),
+      'badge': 'Programmée',
+      'date': _formatWhen(order.createdAt),
+      'createdAt': order.scheduledFor,
+      'progress': 1,
+      'steps': const ['Programmée', 'Confirmée', 'Prête', 'Récupérée'],
+      'refunded': 0,
     };
   }
 
@@ -150,9 +197,16 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
 
   List<Map<String, dynamic>> get currentData {
     final orders = ref.watch(myOrdersProvider).valueOrNull ?? const [];
-    final cards = orders.map(_cardOf).toList();
+    final scheduled =
+        ref.watch(myScheduledOrdersProvider).valueOrNull ?? const [];
+    final cards = [
+      ...orders.map(_cardOf),
+      ...scheduled.map(_scheduledCardOf),
+    ];
     return switch (_tab) {
-      0 => cards.where((o) => o['status'] == 'pending').toList(),
+      0 => cards
+          .where((o) => o['status'] == 'pending' || o['status'] == 'scheduled')
+          .toList(),
       1 => cards.where((o) => o['status'] == 'prepping').toList(),
       _ => () {
         final now = DateTime.now();
@@ -412,13 +466,24 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                             ),
                           ),
                           Text(
-                            '${formatTickets(o['total'] as int)} tickets',
+                            o['status'] == 'scheduled'
+                                ? 'Débit à l’heure prévue'
+                                : '${formatTickets(o['total'] as int)} tickets',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 15,
                               fontWeight: FontWeight.w900,
                               color: LightPageColors.orange,
                             ),
                           ),
+                          if ((o['refunded'] as int? ?? 0) > 0)
+                            Text(
+                              'Remboursé : ${formatTickets(o['refunded'] as int)} tickets',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: LightPageColors.green,
+                              ),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -435,8 +500,22 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                                 icon: Icons.close_rounded,
                                 isPrimary: false,
                                 compact: true,
-                                onPressed: () =>
-                                    _cancelOrder(o['id'] as String),
+                                onPressed: () => o['status'] == 'scheduled'
+                                    ? _cancelScheduled(o['id'] as String)
+                                    : _cancelOrder(o['id'] as String),
+                              ),
+                            if (o['status'] == 'history' ||
+                                o['status'] == 'cancelled' ||
+                                o['status'] == 'prepping')
+                              LightButton(
+                                text: 'Signaler',
+                                icon: Icons.flag_outlined,
+                                isPrimary: false,
+                                compact: true,
+                                onPressed: () => showReportIssueSheet(
+                                  context,
+                                  orderId: o['id'] as String,
+                                ),
                               ),
                             if (o['status'] == 'history' ||
                                 o['status'] == 'cancelled')
@@ -448,16 +527,17 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                                 onPressed: () =>
                                     _reorder(o['order'] as OrderModel),
                               ),
-                            LightButton(
-                              text: 'Détails',
-                              icon: Icons.arrow_forward_rounded,
-                              compact: true,
-                              isPrimary: o['canCancel'] != true,
-                              onPressed: () => context.push(
-                                '/order-detail',
-                                extra: o['id'] as String,
+                            if (o['status'] != 'scheduled')
+                              LightButton(
+                                text: 'Détails',
+                                icon: Icons.arrow_forward_rounded,
+                                compact: true,
+                                isPrimary: o['canCancel'] != true,
+                                onPressed: () => context.push(
+                                  '/order-detail',
+                                  extra: o['id'] as String,
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       ),

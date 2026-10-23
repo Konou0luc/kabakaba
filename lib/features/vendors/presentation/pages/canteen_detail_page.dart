@@ -370,6 +370,37 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
     }
   }
 
+  void _changeComponentQty(ComponentModel component, int nextQty) {
+    final vendor = widget.vendorId == null
+        ? null
+        : ref.read(vendorDetailProvider(widget.vendorId!)).valueOrNull;
+    setState(() {
+      if (nextQty <= 0) {
+        _componentQty.remove(component.id);
+      } else {
+        _componentQty[component.id] = nextQty;
+      }
+    });
+    if (vendor == null) return;
+    final preview = [
+      for (final c in _components)
+        if ((_componentQty[c.id] ?? 0) > 0 && c.available)
+          CartLine(
+            vendorId: vendor.id,
+            vendorName: vendor.canteenName,
+            componentId: c.id,
+            name: c.name,
+            priceTickets: c.priceTickets,
+            quantity: _componentQty[c.id]!,
+            soldAlone: c.soldAlone,
+          ),
+    ];
+    final violation = cartSoldAloneViolation(preview);
+    if (violation != null) {
+      showKabaSnack(context, violation, error: true);
+    }
+  }
+
   Widget _buildComposeTab(VendorModel vendor) {
     final components = _components;
     final categories = _categories;
@@ -419,7 +450,7 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
         const LightHintBox(
           icon: Icons.tips_and_updates_rounded,
           text:
-              'Compose ton repas en choisissant les composants à la carte, puis ajoute-les au panier.',
+              'Compose ton repas. Un accompagnement (piment, sauce…) ne se commande pas tout seul.',
         ),
         const SizedBox(height: 18),
         for (final entry in byCategory.entries) ...[
@@ -438,14 +469,10 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
                   component.priceTickets,
                   qty,
                   component.available
-                      ? () => setState(
-                            () => _componentQty[component.id] = qty + 1,
-                          )
+                      ? () => _changeComponentQty(component, qty + 1)
                       : () {},
                   qty > 0
-                      ? () => setState(
-                            () => _componentQty[component.id] = qty - 1,
-                          )
+                      ? () => _changeComponentQty(component, qty - 1)
                       : null,
                   unit: component.unit,
                   unavailable: !component.available,
@@ -480,11 +507,47 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          LightButton(
-            text: 'Ajouter au panier',
-            icon: Icons.add_rounded,
-            onPressed: () => _addComposedComponents(vendor),
+          Builder(
+            builder: (context) {
+              final preview = [
+                for (final c in components)
+                  if ((_componentQty[c.id] ?? 0) > 0 && c.available)
+                    CartLine(
+                      vendorId: vendor.id,
+                      vendorName: vendor.canteenName,
+                      componentId: c.id,
+                      name: c.name,
+                      priceTickets: c.priceTickets,
+                      quantity: _componentQty[c.id]!,
+                      soldAlone: c.soldAlone,
+                    ),
+              ];
+              final violation = cartSoldAloneViolation(preview);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (violation != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      violation,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: LightPageColors.orange,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  LightButton(
+                    text: 'Ajouter au panier',
+                    icon: Icons.add_rounded,
+                    onPressed: violation == null
+                        ? () => _addComposedComponents(vendor)
+                        : null,
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ],
@@ -513,10 +576,16 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
             priceTickets: c.priceTickets,
             quantity: _componentQty[c.id]!,
             unit: c.unit,
+            soldAlone: c.soldAlone,
           ),
     ];
     if (selected.isEmpty) {
       showKabaSnack(context, 'Choisis au moins un composant', error: true);
+      return;
+    }
+    final violation = cartSoldAloneViolation(selected);
+    if (violation != null) {
+      showKabaSnack(context, violation, error: true);
       return;
     }
     var replaced = false;
@@ -584,7 +653,7 @@ class _CanteenDetailPageState extends ConsumerState<CanteenDetailPage> {
                 Text(
                   unavailable
                       ? 'Indisponible'
-                      : '${formatTickets(price)} tickets${unit != null ? ' · $unit' : ''}',
+                      : 'Disponible · ${formatTickets(price)} tickets${unit != null ? ' · $unit' : ''}',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w600,
